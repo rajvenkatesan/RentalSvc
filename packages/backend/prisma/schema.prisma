@@ -1,0 +1,89 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum ItemCondition {
+  new
+  like_new
+  good
+  fair
+}
+
+enum DeliveryOption {
+  pickup
+  shipping
+  both
+}
+
+model User {
+  id          String   @id @default(uuid()) @db.Uuid
+  email       String   @unique
+  displayName String
+  avatarUrl   String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  items Item[]
+  carts Cart[]
+}
+
+model Item {
+  id          String        @id @default(uuid()) @db.Uuid
+  ownerId     String        @db.Uuid
+  title       String
+  description String?       @db.Text
+  category    String
+  condition   ItemCondition @default(good)
+  images      String[]
+  location    Json?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  owner       User          @relation(fields: [ownerId], references: [id])
+  rentable    RentableItem?
+}
+
+model RentableItem {
+  id              String           @id @default(uuid()) @db.Uuid
+  itemId          String           @unique @db.Uuid
+  dailyRate       Decimal          @db.Decimal(10, 2)
+  weeklyRate      Decimal?         @db.Decimal(10, 2)
+  securityDeposit Decimal?         @db.Decimal(10, 2)
+  minRentalDays   Int              @default(1)
+  maxRentalDays   Int?
+  deliveryOptions DeliveryOption[]
+  shippingCost    Decimal?         @db.Decimal(10, 2)
+  isAvailable     Boolean          @default(true)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  item            Item             @relation(fields: [itemId], references: [id])
+  cartItems       CartItem[]
+}
+
+model Cart {
+  id        String     @id @default(uuid()) @db.Uuid
+  userId    String     @db.Uuid
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  user      User       @relation(fields: [userId], references: [id])
+  items     CartItem[]
+}
+
+model CartItem {
+  id             String       @id @default(uuid()) @db.Uuid
+  cartId         String       @db.Uuid
+  rentableItemId String       @db.Uuid
+  startDate      DateTime
+  endDate        DateTime
+  estimatedCost  Decimal      @db.Decimal(10, 2)
+
+  cart           Cart         @relation(fields: [cartId], references: [id])
+  rentableItem   RentableItem @relation(fields: [rentableItemId], references: [id])
+}
