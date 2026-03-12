@@ -43,13 +43,20 @@ router.get("/", async (req, res) => {
   }
 });
 
-// GET /api/rentable-items/:id — get by id
+// GET /api/rentable-items/:id — get by id or itemId
 router.get("/:id", async (req, res) => {
   try {
-    const rentableItem = await prisma.rentableItem.findUnique({
+    const include = { item: { include: { owner: true } } };
+    let rentableItem = await prisma.rentableItem.findUnique({
       where: { id: req.params.id },
-      include: { item: { include: { owner: true } } },
+      include,
     });
+    if (!rentableItem) {
+      rentableItem = await prisma.rentableItem.findUnique({
+        where: { itemId: req.params.id },
+        include,
+      });
+    }
     if (!rentableItem) {
       return res.status(404).json({ data: null, error: "Rentable item not found", message: null });
     }
