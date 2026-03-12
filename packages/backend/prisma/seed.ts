@@ -1,6 +1,9 @@
-import { PrismaClient, ItemCondition, DeliveryOption } from "../src/generated/prisma/index.js";
+import "dotenv/config";
+import { PrismaClient, ItemCondition, DeliveryOption } from "../src/generated/prisma/client.js";
+import { PrismaPg } from "@prisma/adapter-pg";
 
-const prisma = new PrismaClient();
+const adapter = new PrismaPg({ connectionString: process.env["DATABASE_URL"]! });
+const prisma = new PrismaClient({ adapter });
 
 async function main() {
   // Clean existing data
@@ -13,6 +16,7 @@ async function main() {
   // Create 3 users
   const alice = await prisma.user.create({
     data: {
+      id: "00000000-0000-0000-0000-000000000001",
       email: "alice@example.com",
       displayName: "Alice Johnson",
       avatarUrl: "https://i.pravatar.cc/150?u=alice",

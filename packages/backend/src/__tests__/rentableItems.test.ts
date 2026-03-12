@@ -111,6 +111,21 @@ describe("Rentable Items API", () => {
       expect(res.body.data.id).toBe("ri-1");
     });
 
+    it("falls back to itemId lookup when id not found", async () => {
+      prismaMock.rentableItem.findUnique
+        .mockResolvedValueOnce(null) // first call: by id — not found
+        .mockResolvedValueOnce(sampleRentableItem); // second call: by itemId — found
+
+      const res = await request(app).get("/api/rentable-items/item-1");
+
+      expect(res.status).toBe(200);
+      expect(res.body.data.itemId).toBe("item-1");
+      expect(prismaMock.rentableItem.findUnique).toHaveBeenCalledTimes(2);
+      expect(prismaMock.rentableItem.findUnique).toHaveBeenNthCalledWith(2,
+        expect.objectContaining({ where: { itemId: "item-1" } }),
+      );
+    });
+
     it("returns 404 for missing rentable item", async () => {
       prismaMock.rentableItem.findUnique.mockResolvedValue(null);
 
