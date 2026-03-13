@@ -27,6 +27,8 @@ export const prismaMock: Record<string, ModelMock> = {
   cart: createModelMock(),
   cartItem: createModelMock(),
   user: createModelMock(),
+  blockedDay: createModelMock(),
+  rental: createModelMock(),
 };
 
 // Mock the prisma module

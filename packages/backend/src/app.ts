@@ -3,6 +3,7 @@ import cors from "cors";
 import itemsRouter from "./routes/items.js";
 import rentableItemsRouter from "./routes/rentableItems.js";
 import cartRouter from "./routes/cart.js";
+import usersRouter from "./routes/users.js";
 
 import type { Express } from "express";
 
@@ -18,5 +19,6 @@ app.get("/api/health", (_req, res) => {
 app.use("/api/items", itemsRouter);
 app.use("/api/rentable-items", rentableItemsRouter);
 app.use("/api/cart", cartRouter);
+app.use("/api/users", usersRouter);
 
 export default app;
