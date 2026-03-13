@@ -222,7 +222,8 @@ export function deleteUser(id: string): Promise<null> {
 
 // --- Cart ---
 
-export function fetchCart(userId: string = HARDCODED_USER_ID): Promise<Cart> {
+export function fetchCart(): Promise<Cart> {
+  const userId = getApiUserId();
   return apiFetch<Cart>(`/api/cart/${userId}`);
 }
 
@@ -230,14 +231,13 @@ export async function addToCart(
   rentableItemId: string,
   startDate: string,
   endDate: string,
-  userId: string = HARDCODED_USER_ID,
 ): Promise<{ data?: CartItem; error?: string }> {
-  const uid = getApiUserId();
+  const userId = getApiUserId();
   const res = await fetch(`/api/cart/${userId}/items`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      ...(uid ? { "x-user-id": uid } : {}),
+      ...(userId ? { "x-user-id": userId } : {}),
     },
     body: JSON.stringify({ rentableItemId, startDate, endDate }),
   });
@@ -255,8 +255,8 @@ export function updateCartItem(
   itemId: string,
   startDate: string,
   endDate: string,
-  userId: string = HARDCODED_USER_ID,
 ): Promise<CartItem> {
+  const userId = getApiUserId();
   return apiFetch<CartItem>(`/api/cart/${userId}/items/${itemId}`, {
     method: "PUT",
     body: JSON.stringify({ startDate, endDate }),
@@ -265,8 +265,8 @@ export function updateCartItem(
 
 export function removeFromCart(
   itemId: string,
-  userId: string = HARDCODED_USER_ID,
 ): Promise<null> {
+  const userId = getApiUserId();
   return apiFetch<null>(`/api/cart/${userId}/items/${itemId}`, {
     method: "DELETE",
   });
