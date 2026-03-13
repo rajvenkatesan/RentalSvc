@@ -1,32 +1,58 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import {
   fetchItems,
   fetchRentableItems,
-  HARDCODED_USER_ID,
+  deleteItem,
   type Item,
   type RentableItem,
 } from "../lib/api";
+import { useUser } from "../context/UserContext";
 
 type Tab = "listings" | "rentals";
 
 export default function Dashboard() {
+  const navigate = useNavigate();
+  const { currentUser } = useUser();
   const [tab, setTab] = useState<Tab>("listings");
   const [myListings, setMyListings] = useState<RentableItem[]>([]);
   const [myItems, setMyItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (!currentUser) {
+      setLoading(false);
+      return;
+    }
     Promise.all([fetchItems(), fetchRentableItems()])
       .then(([items, rentables]) => {
-        setMyItems(items.filter((i) => i.ownerId === HARDCODED_USER_ID));
+        setMyItems(items.filter((i) => i.ownerId === currentUser.id));
         setMyListings(
-          rentables.filter((r) => r.item.ownerId === HARDCODED_USER_ID),
+          rentables.filter((r) => r.item.ownerId === currentUser.id),
         );
       })
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, []);
+  }, [currentUser]);
+
+  async function handleDelete(itemId: string) {
+    if (!window.confirm("Are you sure you want to delete this item?")) return;
+    try {
+      await deleteItem(itemId);
+      setMyItems((prev) => prev.filter((i) => i.id !== itemId));
+      setMyListings((prev) => prev.filter((r) => r.item.id !== itemId));
+    } catch {
+      // silently fail — user will see item still present
+    }
+  }
+
+  if (!currentUser) {
+    return (
+      <div className="max-w-7xl mx-auto px-4 py-8 text-center">
+        <p className="text-gray-500">Please select a user to view your dashboard.</p>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">
@@ -72,28 +98,43 @@ export default function Dashboard() {
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {myListings.map((r) => (
-              <Link
+              <div
                 key={r.id}
-                to={`/item/${r.id}`}
                 className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow"
               >
-                <h3 className="font-semibold text-gray-900">{r.item.title}</h3>
-                <p className="text-sm text-gray-500">{r.item.category}</p>
-                <div className="flex justify-between mt-2">
-                  <span className="text-indigo-600 font-bold">
-                    ${Number(r.dailyRate).toFixed(2)}/day
-                  </span>
-                  <span
-                    className={`text-xs px-2 py-1 rounded-full ${
-                      r.isAvailable
-                        ? "bg-green-100 text-green-700"
-                        : "bg-gray-100 text-gray-500"
-                    }`}
+                <Link to={`/item/${r.id}`}>
+                  <h3 className="font-semibold text-gray-900">{r.item.title}</h3>
+                  <p className="text-sm text-gray-500">{r.item.category}</p>
+                  <div className="flex justify-between mt-2">
+                    <span className="text-indigo-600 font-bold">
+                      ${Number(r.dailyRate).toFixed(2)}/day
+                    </span>
+                    <span
+                      className={`text-xs px-2 py-1 rounded-full ${
+                        r.isAvailable
+                          ? "bg-green-100 text-green-700"
+                          : "bg-gray-100 text-gray-500"
+                      }`}
+                    >
+                      {r.isAvailable ? "Available" : "Unavailable"}
+                    </span>
+                  </div>
+                </Link>
+                <div className="flex gap-2 mt-3 pt-3 border-t border-gray-100">
+                  <button
+                    onClick={() => navigate(`/item/${r.id}/edit`)}
+                    className="text-xs bg-gray-100 text-gray-700 px-3 py-1 rounded-md hover:bg-gray-200"
                   >
-                    {r.isAvailable ? "Available" : "Unavailable"}
-                  </span>
+                    Edit
+                  </button>
+                  <button
+                    onClick={() => handleDelete(r.item.id)}
+                    className="text-xs bg-red-100 text-red-700 px-3 py-1 rounded-md hover:bg-red-200"
+                  >
+                    Delete
+                  </button>
                 </div>
-              </Link>
+              </div>
             ))}
           </div>
         )
@@ -111,6 +152,14 @@ export default function Dashboard() {
                 {item.category} &middot;{" "}
                 <span className="capitalize">{item.condition.replace("_", " ")}</span>
               </p>
+              <div className="flex gap-2 mt-3 pt-3 border-t border-gray-100">
+                <button
+                  onClick={() => handleDelete(item.id)}
+                  className="text-xs bg-red-100 text-red-700 px-3 py-1 rounded-md hover:bg-red-200"
+                >
+                  Delete
+                </button>
+              </div>
             </div>
           ))}
         </div>

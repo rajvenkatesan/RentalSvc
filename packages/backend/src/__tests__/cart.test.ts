@@ -60,7 +60,10 @@ describe("Cart API", () => {
       prismaMock.rentableItem.findUnique.mockResolvedValue({
         id: "ri-1",
         dailyRate: 25,
+        isAvailable: true,
       });
+      prismaMock.rental.findFirst.mockResolvedValue(null);
+      prismaMock.blockedDay.findFirst.mockResolvedValue(null);
       prismaMock.cartItem.create.mockResolvedValue(sampleCartItem);
 
       const res = await request(app)
@@ -81,7 +84,10 @@ describe("Cart API", () => {
       prismaMock.rentableItem.findUnique.mockResolvedValue({
         id: "ri-1",
         dailyRate: 25,
+        isAvailable: true,
       });
+      prismaMock.rental.findFirst.mockResolvedValue(null);
+      prismaMock.blockedDay.findFirst.mockResolvedValue(null);
       prismaMock.cartItem.create.mockResolvedValue(sampleCartItem);
 
       const res = await request(app)
@@ -94,6 +100,81 @@ describe("Cart API", () => {
 
       expect(res.status).toBe(201);
       expect(prismaMock.cart.create).toHaveBeenCalled();
+    });
+
+    it("returns 409 when item isAvailable is false", async () => {
+      prismaMock.cart.findFirst.mockResolvedValue(sampleCart);
+      prismaMock.rentableItem.findUnique.mockResolvedValue({
+        id: "ri-1",
+        dailyRate: 25,
+        isAvailable: false,
+      });
+
+      const res = await request(app)
+        .post("/api/cart/user-1/items")
+        .send({
+          rentableItemId: "ri-1",
+          startDate: "2025-01-01",
+          endDate: "2025-01-05",
+        });
+
+      expect(res.status).toBe(409);
+      expect(res.body.error).toBe("This item is not currently available for rent");
+    });
+
+    it("returns 409 when dates overlap with existing rental", async () => {
+      prismaMock.cart.findFirst.mockResolvedValue(sampleCart);
+      prismaMock.rentableItem.findUnique.mockResolvedValue({
+        id: "ri-1",
+        dailyRate: 25,
+        isAvailable: true,
+      });
+      prismaMock.rental.findFirst.mockResolvedValue({
+        id: "rental-1",
+        rentableItemId: "ri-1",
+        status: "active",
+        startDate: new Date("2025-01-03"),
+        endDate: new Date("2025-01-10"),
+      });
+
+      const res = await request(app)
+        .post("/api/cart/user-1/items")
+        .send({
+          rentableItemId: "ri-1",
+          startDate: "2025-01-01",
+          endDate: "2025-01-05",
+        });
+
+      expect(res.status).toBe(409);
+      expect(res.body.error).toBe("This item is already rented for the requested dates");
+    });
+
+    it("returns 409 when dates overlap with blocked days", async () => {
+      prismaMock.cart.findFirst.mockResolvedValue(sampleCart);
+      prismaMock.rentableItem.findUnique.mockResolvedValue({
+        id: "ri-1",
+        dailyRate: 25,
+        isAvailable: true,
+      });
+      prismaMock.rental.findFirst.mockResolvedValue(null);
+      prismaMock.blockedDay.findFirst.mockResolvedValue({
+        id: "bd-1",
+        rentableItemId: "ri-1",
+        startDate: new Date("2025-01-02"),
+        endDate: new Date("2025-01-04"),
+        reason: "Maintenance",
+      });
+
+      const res = await request(app)
+        .post("/api/cart/user-1/items")
+        .send({
+          rentableItemId: "ri-1",
+          startDate: "2025-01-01",
+          endDate: "2025-01-05",
+        });
+
+      expect(res.status).toBe(409);
+      expect(res.body.error).toBe("This item is not available for the requested dates");
     });
 
     it("returns 400 for missing required fields", async () => {

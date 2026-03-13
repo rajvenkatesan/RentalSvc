@@ -95,16 +95,39 @@ describe("Items API", () => {
   });
 
   describe("PUT /api/items/:id", () => {
-    it("updates an existing item", async () => {
+    it("updates an existing item when owner", async () => {
       prismaMock.item.findUnique.mockResolvedValue(sampleItem);
       prismaMock.item.update.mockResolvedValue({ ...sampleItem, title: "Updated Drill" });
 
       const res = await request(app)
         .put("/api/items/item-1")
+        .set("x-user-id", "user-1")
         .send({ title: "Updated Drill" });
 
       expect(res.status).toBe(200);
       expect(res.body.data.title).toBe("Updated Drill");
+    });
+
+    it("returns 403 for non-owner", async () => {
+      prismaMock.item.findUnique.mockResolvedValue(sampleItem);
+
+      const res = await request(app)
+        .put("/api/items/item-1")
+        .set("x-user-id", "user-999")
+        .send({ title: "Updated Drill" });
+
+      expect(res.status).toBe(403);
+      expect(res.body.error).toContain("Forbidden");
+    });
+
+    it("returns 403 when no x-user-id header", async () => {
+      prismaMock.item.findUnique.mockResolvedValue(sampleItem);
+
+      const res = await request(app)
+        .put("/api/items/item-1")
+        .send({ title: "Updated Drill" });
+
+      expect(res.status).toBe(403);
     });
 
     it("returns 404 for missing item", async () => {
@@ -112,6 +135,7 @@ describe("Items API", () => {
 
       const res = await request(app)
         .put("/api/items/nonexistent")
+        .set("x-user-id", "user-1")
         .send({ title: "Updated" });
 
       expect(res.status).toBe(404);
@@ -119,20 +143,43 @@ describe("Items API", () => {
   });
 
   describe("DELETE /api/items/:id", () => {
-    it("deletes an existing item", async () => {
+    it("deletes an existing item when owner", async () => {
       prismaMock.item.findUnique.mockResolvedValue(sampleItem);
       prismaMock.item.delete.mockResolvedValue(sampleItem);
 
-      const res = await request(app).delete("/api/items/item-1");
+      const res = await request(app)
+        .delete("/api/items/item-1")
+        .set("x-user-id", "user-1");
 
       expect(res.status).toBe(200);
       expect(res.body.message).toBe("Item deleted");
     });
 
+    it("returns 403 for non-owner", async () => {
+      prismaMock.item.findUnique.mockResolvedValue(sampleItem);
+
+      const res = await request(app)
+        .delete("/api/items/item-1")
+        .set("x-user-id", "user-999");
+
+      expect(res.status).toBe(403);
+      expect(res.body.error).toContain("Forbidden");
+    });
+
+    it("returns 403 when no x-user-id header", async () => {
+      prismaMock.item.findUnique.mockResolvedValue(sampleItem);
+
+      const res = await request(app).delete("/api/items/item-1");
+
+      expect(res.status).toBe(403);
+    });
+
     it("returns 404 for missing item", async () => {
       prismaMock.item.findUnique.mockResolvedValue(null);
 
-      const res = await request(app).delete("/api/items/nonexistent");
+      const res = await request(app)
+        .delete("/api/items/nonexistent")
+        .set("x-user-id", "user-1");
 
       expect(res.status).toBe(404);
     });
