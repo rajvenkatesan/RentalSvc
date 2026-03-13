@@ -6,17 +6,25 @@ import {
   type Cart as CartType,
   type CartItem,
 } from "../lib/api";
+import { useUser } from "../context/UserContext";
 import DatePicker from "../components/DatePicker";
 
 export default function Cart() {
+  const { currentUser } = useUser();
   const [cart, setCart] = useState<CartType | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (!currentUser) {
+      setCart(null);
+      setLoading(false);
+      return;
+    }
     loadCart();
-  }, []);
+  }, [currentUser?.id]);
 
   function loadCart() {
+    if (!currentUser) return;
     setLoading(true);
     fetchCart()
       .then(setCart)
@@ -25,6 +33,7 @@ export default function Cart() {
   }
 
   async function handleRemove(itemId: string) {
+    if (!currentUser) return;
     await removeFromCart(itemId);
     loadCart();
   }
@@ -34,7 +43,7 @@ export default function Cart() {
     start: string,
     end: string,
   ) {
-    if (!start || !end) return;
+    if (!start || !end || !currentUser) return;
     await updateCartItem(cartItem.id, start, end);
     loadCart();
   }
@@ -42,6 +51,7 @@ export default function Cart() {
   const total =
     cart?.items.reduce((sum, ci) => sum + Number(ci.estimatedCost), 0) ?? 0;
 
+  if (!currentUser) return <div className="max-w-4xl mx-auto px-4 py-8 text-gray-500">Please sign in to view your cart.</div>;
   if (loading) return <div className="max-w-4xl mx-auto px-4 py-8 text-gray-500">Loading...</div>;
 
   return (
