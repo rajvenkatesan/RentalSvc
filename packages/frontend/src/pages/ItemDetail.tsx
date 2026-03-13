@@ -186,7 +186,7 @@ export default function ItemDetail() {
       </div>
 
       {/* Blocked Days */}
-      <BlockedDaysCalendar rentableItemId={rentable.id} isOwner={isOwner} />
+      {isOwner && <BlockedDaysCalendar rentableItemId={rentable.id} isOwner={isOwner} />}
     </div>
   );
 }
