@@ -200,6 +200,26 @@ export function registerUser(username: string, displayName?: string): Promise<Us
   });
 }
 
+export function fetchUserByUsername(username: string): Promise<User> {
+  return apiFetch<User>(`/api/users/by-username/${encodeURIComponent(username)}`);
+}
+
+export function updateUser(
+  id: string,
+  data: Partial<{ username: string; displayName: string }>,
+): Promise<User> {
+  return apiFetch<User>(`/api/users/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(data),
+  });
+}
+
+export function deleteUser(id: string): Promise<null> {
+  return apiFetch<null>(`/api/users/${id}`, {
+    method: "DELETE",
+  });
+}
+
 // --- Cart ---
 
 export function fetchCart(userId: string = HARDCODED_USER_ID): Promise<Cart> {

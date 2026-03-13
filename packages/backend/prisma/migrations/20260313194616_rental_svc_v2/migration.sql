@@ -1,0 +1,5 @@
+-- AlterTable
+ALTER TABLE "BlockedDay" ALTER COLUMN "id" DROP DEFAULT;
+
+-- AlterTable
+ALTER TABLE "Rental" ALTER COLUMN "id" DROP DEFAULT;

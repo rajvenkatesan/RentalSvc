@@ -46,6 +46,22 @@ router.get("/", async (_req, res) => {
   }
 });
 
+// GET /api/users/by-username/:username — look up user by username
+router.get("/by-username/:username", async (req, res) => {
+  try {
+    const user = await prisma.user.findUnique({
+      where: { username: req.params.username },
+      include: { items: true },
+    });
+    if (!user) {
+      return res.status(404).json({ data: null, error: "User not found", message: null });
+    }
+    res.json({ data: user, error: null, message: "User retrieved" });
+  } catch (err) {
+    res.status(500).json({ data: null, error: "Internal server error", message: null });
+  }
+});
+
 // GET /api/users/:id — get user by id
 router.get("/:id", async (req, res) => {
   try {
@@ -57,6 +73,54 @@ router.get("/:id", async (req, res) => {
       return res.status(404).json({ data: null, error: "User not found", message: null });
     }
     res.json({ data: user, error: null, message: "User retrieved" });
+  } catch (err) {
+    res.status(500).json({ data: null, error: "Internal server error", message: null });
+  }
+});
+
+// PUT /api/users/:id — update user fields
+router.put("/:id", async (req, res) => {
+  try {
+    const { username, displayName } = req.body;
+
+    const existing = await prisma.user.findUnique({ where: { id: req.params.id } });
+    if (!existing) {
+      return res.status(404).json({ data: null, error: "User not found", message: null });
+    }
+
+    // Check username uniqueness if changing username
+    if (username && username.trim() !== existing.username) {
+      const taken = await prisma.user.findUnique({ where: { username: username.trim() } });
+      if (taken) {
+        return res.status(409).json({ data: null, error: "Username already taken", message: null });
+      }
+    }
+
+    const updateData: Record<string, string> = {};
+    if (username) updateData.username = username.trim();
+    if (displayName) updateData.displayName = displayName.trim();
+
+    const user = await prisma.user.update({
+      where: { id: req.params.id },
+      data: updateData,
+    });
+
+    res.json({ data: user, error: null, message: "User updated" });
+  } catch (err) {
+    res.status(500).json({ data: null, error: "Internal server error", message: null });
+  }
+});
+
+// DELETE /api/users/:id — delete user
+router.delete("/:id", async (req, res) => {
+  try {
+    const existing = await prisma.user.findUnique({ where: { id: req.params.id } });
+    if (!existing) {
+      return res.status(404).json({ data: null, error: "User not found", message: null });
+    }
+
+    await prisma.user.delete({ where: { id: req.params.id } });
+    res.json({ data: null, error: null, message: "User deleted" });
   } catch (err) {
     res.status(500).json({ data: null, error: "Internal server error", message: null });
   }
