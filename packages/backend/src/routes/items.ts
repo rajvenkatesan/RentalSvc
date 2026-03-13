@@ -52,12 +52,16 @@ router.post("/", async (req, res) => {
   }
 });
 
-// PUT /api/items/:id — update item
+// PUT /api/items/:id — update item (owner only)
 router.put("/:id", async (req, res) => {
   try {
     const existing = await prisma.item.findUnique({ where: { id: req.params.id } });
     if (!existing) {
       return res.status(404).json({ data: null, error: "Item not found", message: null });
+    }
+    const userId = req.headers["x-user-id"] as string;
+    if (!userId || userId !== existing.ownerId) {
+      return res.status(403).json({ data: null, error: "Forbidden: only the owner can edit this item", message: null });
     }
     const item = await prisma.item.update({
       where: { id: req.params.id },
@@ -69,12 +73,16 @@ router.put("/:id", async (req, res) => {
   }
 });
 
-// DELETE /api/items/:id — delete item
+// DELETE /api/items/:id — delete item (owner only)
 router.delete("/:id", async (req, res) => {
   try {
     const existing = await prisma.item.findUnique({ where: { id: req.params.id } });
     if (!existing) {
       return res.status(404).json({ data: null, error: "Item not found", message: null });
+    }
+    const userId = req.headers["x-user-id"] as string;
+    if (!userId || userId !== existing.ownerId) {
+      return res.status(403).json({ data: null, error: "Forbidden: only the owner can delete this item", message: null });
     }
     await prisma.item.delete({ where: { id: req.params.id } });
     res.json({ data: null, error: null, message: "Item deleted" });

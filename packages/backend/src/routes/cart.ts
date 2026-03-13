@@ -71,8 +71,39 @@ router.post("/:userId/items", async (req, res) => {
       return res.status(404).json({ data: null, error: "Rentable item not found", message: null });
     }
 
+    // Check if item is available
+    if (!rentableItem.isAvailable) {
+      return res.status(409).json({ data: null, error: "This item is not currently available for rent", message: null });
+    }
+
     const start = new Date(startDate);
     const end = new Date(endDate);
+
+    // Check for overlapping rentals (pending or active)
+    const overlappingRental = await prisma.rental.findFirst({
+      where: {
+        rentableItemId,
+        status: { in: ["pending", "active"] },
+        startDate: { lt: end },
+        endDate: { gt: start },
+      },
+    });
+    if (overlappingRental) {
+      return res.status(409).json({ data: null, error: "This item is already rented for the requested dates", message: null });
+    }
+
+    // Check for overlapping blocked days
+    const overlappingBlocked = await prisma.blockedDay.findFirst({
+      where: {
+        rentableItemId,
+        startDate: { lt: end },
+        endDate: { gt: start },
+      },
+    });
+    if (overlappingBlocked) {
+      return res.status(409).json({ data: null, error: "This item is not available for the requested dates", message: null });
+    }
+
     const days = Math.max(1, Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)));
     const estimatedCost = Number(rentableItem.dailyRate) * days;
 

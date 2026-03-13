@@ -5,6 +5,10 @@ import {
   fetchCart,
   addToCart,
   removeFromCart,
+  fetchUsers,
+  registerUser,
+  uploadImage,
+  fetchBlockedDays,
   HARDCODED_USER_ID,
 } from "../lib/api";
 
@@ -35,7 +39,7 @@ describe("API client", () => {
     mockFetch.mockResolvedValue(apiResponse([]));
     const result = await fetchItems();
     expect(mockFetch).toHaveBeenCalledWith("/api/items", expect.objectContaining({
-      headers: { "Content-Type": "application/json" },
+      headers: expect.objectContaining({ "Content-Type": "application/json" }),
     }));
     expect(result).toEqual([]);
   });
@@ -79,5 +83,54 @@ describe("API client", () => {
   it("throws on API error response", async () => {
     mockFetch.mockResolvedValue(apiError("Not found"));
     await expect(fetchItems()).rejects.toThrow("Not found");
+  });
+
+  it("fetchUsers calls the correct endpoint", async () => {
+    mockFetch.mockResolvedValue(apiResponse([{ id: "u1", username: "alice" }]));
+    const result = await fetchUsers();
+    expect(mockFetch.mock.calls[0][0]).toBe("/api/users");
+    expect(result).toEqual([{ id: "u1", username: "alice" }]);
+  });
+
+  it("registerUser sends POST with correct payload", async () => {
+    mockFetch.mockResolvedValue(apiResponse({ id: "u2", username: "bob", displayName: "Bob" }));
+    const result = await registerUser("bob", "Bob");
+    const [url, opts] = mockFetch.mock.calls[0];
+    expect(url).toBe("/api/users");
+    expect(opts.method).toBe("POST");
+    expect(JSON.parse(opts.body)).toEqual({ username: "bob", displayName: "Bob" });
+    expect(result.username).toBe("bob");
+  });
+
+  it("uploadImage sends FormData to /api/images", async () => {
+    mockFetch.mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ data: { url: "/uploads/img.png" }, error: null, message: null }),
+    });
+    const file = new File(["content"], "photo.png", { type: "image/png" });
+    const url = await uploadImage(file);
+    const [callUrl, opts] = mockFetch.mock.calls[0];
+    expect(callUrl).toBe("/api/images");
+    expect(opts.method).toBe("POST");
+    expect(opts.body).toBeInstanceOf(FormData);
+    expect(url).toBe("/uploads/img.png");
+  });
+
+  it("fetchBlockedDays calls correct endpoint", async () => {
+    mockFetch.mockResolvedValue(apiResponse([{ id: "bd1", startDate: "2025-06-01" }]));
+    const result = await fetchBlockedDays("ri1");
+    expect(mockFetch.mock.calls[0][0]).toBe("/api/blocked-days/ri1");
+    expect(result).toEqual([{ id: "bd1", startDate: "2025-06-01" }]);
+  });
+
+  it("addToCart handles 409 gracefully without throwing", async () => {
+    mockFetch.mockResolvedValue({
+      ok: false,
+      status: 409,
+      json: () => Promise.resolve({ data: null, error: "Date conflict", message: null }),
+    });
+    const result = await addToCart("r1", "2025-06-01", "2025-06-05");
+    expect(result.error).toBe("Date conflict");
+    expect(result.data).toBeUndefined();
   });
 });

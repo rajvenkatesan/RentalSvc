@@ -1,11 +1,14 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { fetchRentableItem, addToCart, type RentableItem } from "../lib/api";
+import { fetchRentableItem, addToCart, deleteItem, type RentableItem } from "../lib/api";
+import { useUser } from "../context/UserContext";
 import DatePicker from "../components/DatePicker";
+import BlockedDaysCalendar from "../components/BlockedDaysCalendar";
 
 export default function ItemDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { currentUser } = useUser();
   const [rentable, setRentable] = useState<RentableItem | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -13,6 +16,7 @@ export default function ItemDetail() {
   const [endDate, setEndDate] = useState("");
   const [adding, setAdding] = useState(false);
   const [added, setAdded] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -22,16 +26,31 @@ export default function ItemDetail() {
       .finally(() => setLoading(false));
   }, [id]);
 
+  const isOwner = !!(currentUser && rentable && rentable.item.ownerId === currentUser.id);
+
   async function handleAddToCart() {
     if (!rentable || !startDate || !endDate) return;
     setAdding(true);
-    try {
-      await addToCart(rentable.id, startDate, endDate);
+    setError("");
+    const result = await addToCart(rentable.id, startDate, endDate);
+    if (result.error) {
+      setError(result.error);
+    } else {
       setAdded(true);
+    }
+    setAdding(false);
+  }
+
+  async function handleDelete() {
+    if (!rentable) return;
+    if (!window.confirm("Are you sure you want to delete this item? This cannot be undone.")) return;
+    setDeleting(true);
+    try {
+      await deleteItem(rentable.item.id);
+      navigate("/dashboard");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to add to cart");
-    } finally {
-      setAdding(false);
+      setError(err instanceof Error ? err.message : "Failed to delete item");
+      setDeleting(false);
     }
   }
 
@@ -63,7 +82,26 @@ export default function ItemDetail() {
 
         {/* Details */}
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">{item.title}</h1>
+          <div className="flex items-start justify-between mb-2">
+            <h1 className="text-2xl font-bold text-gray-900">{item.title}</h1>
+            {isOwner && (
+              <div className="flex gap-2 ml-4">
+                <button
+                  onClick={() => navigate(`/item/${id}/edit`)}
+                  className="text-sm bg-gray-100 text-gray-700 px-3 py-1 rounded-md hover:bg-gray-200"
+                >
+                  Edit
+                </button>
+                <button
+                  onClick={handleDelete}
+                  disabled={deleting}
+                  className="text-sm bg-red-100 text-red-700 px-3 py-1 rounded-md hover:bg-red-200 disabled:opacity-50"
+                >
+                  {deleting ? "Deleting..." : "Delete"}
+                </button>
+              </div>
+            )}
+          </div>
           <p className="text-sm text-gray-500 mb-1">
             {item.category} &middot;{" "}
             <span className="capitalize">{item.condition.replace("_", " ")}</span>
@@ -146,6 +184,9 @@ export default function ItemDetail() {
           </div>
         </div>
       </div>
+
+      {/* Blocked Days */}
+      <BlockedDaysCalendar rentableItemId={rentable.id} isOwner={isOwner} />
     </div>
   );
 }

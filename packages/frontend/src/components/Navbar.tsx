@@ -1,15 +1,18 @@
 import { Link } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { fetchCart } from "../lib/api";
+import UserSelector from "./UserSelector";
+import { useUser } from "../context/UserContext";
 
 export default function Navbar() {
   const [cartCount, setCartCount] = useState(0);
+  const { currentUser } = useUser();
 
   useEffect(() => {
     fetchCart()
       .then((cart) => setCartCount(cart.items.length))
       .catch(() => setCartCount(0));
-  }, []);
+  }, [currentUser]);
 
   return (
     <nav className="bg-white shadow-sm border-b border-gray-200">
@@ -42,6 +45,7 @@ export default function Navbar() {
                 </span>
               )}
             </Link>
+            <UserSelector />
           </div>
           {/* Mobile menu */}
           <div className="sm:hidden flex items-center gap-4">
@@ -56,6 +60,7 @@ export default function Navbar() {
                 </span>
               )}
             </Link>
+            <UserSelector />
           </div>
         </div>
       </div>

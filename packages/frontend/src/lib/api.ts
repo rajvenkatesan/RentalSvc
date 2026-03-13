@@ -2,10 +2,21 @@ const HARDCODED_USER_ID = "00000000-0000-0000-0000-000000000001";
 
 export { HARDCODED_USER_ID };
 
+let _apiUserId: string | null = null;
+
+export function setApiUserId(id: string | null) {
+  _apiUserId = id;
+}
+
+export function getApiUserId(): string {
+  return _apiUserId ?? HARDCODED_USER_ID;
+}
+
 // --- Types ---
 
 export interface User {
   id: string;
+  username: string;
   email: string;
   displayName: string;
   avatarUrl: string | null;
@@ -61,6 +72,14 @@ export interface Cart {
   items: CartItem[];
 }
 
+export interface BlockedDay {
+  id: string;
+  rentableItemId: string;
+  startDate: string;
+  endDate: string;
+  reason: string | null;
+}
+
 interface ApiResponse<T> {
   data: T | null;
   error: string | null;
@@ -68,9 +87,14 @@ interface ApiResponse<T> {
 }
 
 async function apiFetch<T>(url: string, options?: RequestInit): Promise<T> {
+  const userId = getApiUserId();
   const res = await fetch(url, {
-    headers: { "Content-Type": "application/json" },
     ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...(userId ? { "x-user-id": userId } : {}),
+      ...options?.headers,
+    },
   });
   const json: ApiResponse<T> = await res.json();
   if (json.error || !res.ok) {
@@ -101,6 +125,28 @@ export function createItem(data: {
   return apiFetch<Item>("/api/items", {
     method: "POST",
     body: JSON.stringify(data),
+  });
+}
+
+export function updateItem(
+  id: string,
+  data: Partial<{
+    title: string;
+    description: string;
+    category: string;
+    condition: string;
+    images: string[];
+  }>,
+): Promise<Item> {
+  return apiFetch<Item>(`/api/items/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(data),
+  });
+}
+
+export function deleteItem(id: string): Promise<null> {
+  return apiFetch<null>(`/api/items/${id}`, {
+    method: "DELETE",
   });
 }
 
@@ -141,22 +187,48 @@ export function createRentableItem(data: {
   });
 }
 
+// --- Users ---
+
+export function fetchUsers(): Promise<User[]> {
+  return apiFetch<User[]>("/api/users");
+}
+
+export function registerUser(username: string, displayName?: string): Promise<User> {
+  return apiFetch<User>("/api/users", {
+    method: "POST",
+    body: JSON.stringify({ username, ...(displayName ? { displayName } : {}) }),
+  });
+}
+
 // --- Cart ---
 
 export function fetchCart(userId: string = HARDCODED_USER_ID): Promise<Cart> {
   return apiFetch<Cart>(`/api/cart/${userId}`);
 }
 
-export function addToCart(
+export async function addToCart(
   rentableItemId: string,
   startDate: string,
   endDate: string,
   userId: string = HARDCODED_USER_ID,
-): Promise<CartItem> {
-  return apiFetch<CartItem>(`/api/cart/${userId}/items`, {
+): Promise<{ data?: CartItem; error?: string }> {
+  const uid = getApiUserId();
+  const res = await fetch(`/api/cart/${userId}/items`, {
     method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...(uid ? { "x-user-id": uid } : {}),
+    },
     body: JSON.stringify({ rentableItemId, startDate, endDate }),
   });
+  const json: ApiResponse<CartItem> = await res.json();
+  if (res.status === 409) {
+    return { error: json.error ?? "Date conflict" };
+  }
+  if (json.error || !res.ok) {
+    return { error: json.error ?? `Request failed: ${res.status}` };
+  }
+  return { data: json.data as CartItem };
 }
 
 export function updateCartItem(
@@ -176,6 +248,48 @@ export function removeFromCart(
   userId: string = HARDCODED_USER_ID,
 ): Promise<null> {
   return apiFetch<null>(`/api/cart/${userId}/items/${itemId}`, {
+    method: "DELETE",
+  });
+}
+
+// --- Images ---
+
+export async function uploadImage(file: File): Promise<string> {
+  const formData = new FormData();
+  formData.append("file", file);
+  const uid = getApiUserId();
+  const res = await fetch("/api/images", {
+    method: "POST",
+    headers: uid ? { "x-user-id": uid } : {},
+    body: formData,
+  });
+  const json: ApiResponse<{ url: string }> = await res.json();
+  if (json.error || !res.ok) {
+    throw new Error(json.error ?? "Upload failed");
+  }
+  return (json.data as { url: string }).url;
+}
+
+// --- Blocked Days ---
+
+export function fetchBlockedDays(rentableItemId: string): Promise<BlockedDay[]> {
+  return apiFetch<BlockedDay[]>(`/api/blocked-days/${rentableItemId}`);
+}
+
+export function createBlockedDay(
+  rentableItemId: string,
+  startDate: string,
+  endDate: string,
+  reason?: string,
+): Promise<BlockedDay> {
+  return apiFetch<BlockedDay>(`/api/blocked-days/${rentableItemId}`, {
+    method: "POST",
+    body: JSON.stringify({ startDate, endDate, reason }),
+  });
+}
+
+export function deleteBlockedDay(id: string): Promise<null> {
+  return apiFetch<null>(`/api/blocked-days/${id}`, {
     method: "DELETE",
   });
 }

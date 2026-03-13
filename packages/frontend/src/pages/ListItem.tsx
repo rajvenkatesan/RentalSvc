@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { createItem, createRentableItem, HARDCODED_USER_ID } from "../lib/api";
+import { createItem, createRentableItem } from "../lib/api";
+import { useUser } from "../context/UserContext";
+import ImageUpload from "../components/ImageUpload";
 
 type Step = 1 | 2 | 3;
 
@@ -14,6 +16,7 @@ const CONDITIONS = [
 
 export default function ListItem() {
   const navigate = useNavigate();
+  const { currentUser } = useUser();
   const [step, setStep] = useState<Step>(1);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
@@ -23,6 +26,7 @@ export default function ListItem() {
   const [description, setDescription] = useState("");
   const [category, setCategory] = useState(CATEGORIES[0]);
   const [condition, setCondition] = useState("good");
+  const [images, setImages] = useState<string[]>([]);
 
   // Step 2 — Rental terms
   const [dailyRate, setDailyRate] = useState("");
@@ -36,11 +40,12 @@ export default function ListItem() {
     setError("");
     try {
       const item = await createItem({
-        ownerId: HARDCODED_USER_ID,
+        ownerId: currentUser?.id ?? "",
         title,
         description: description || undefined,
         category,
         condition,
+        images: images.length > 0 ? images : undefined,
       });
       await createRentableItem({
         itemId: item.id,
@@ -126,6 +131,7 @@ export default function ListItem() {
               </select>
             </div>
           </div>
+          <ImageUpload images={images} onChange={setImages} />
           <button
             onClick={() => setStep(2)}
             disabled={!canAdvanceStep1}
@@ -239,6 +245,12 @@ export default function ListItem() {
               <span className="text-gray-600">Condition</span>
               <span className="font-medium capitalize">{condition.replace("_", " ")}</span>
             </div>
+            {images.length > 0 && (
+              <div className="flex justify-between">
+                <span className="text-gray-600">Images</span>
+                <span className="font-medium">{images.length} uploaded</span>
+              </div>
+            )}
             <hr className="my-2" />
             <div className="flex justify-between">
               <span className="text-gray-600">Daily Rate</span>

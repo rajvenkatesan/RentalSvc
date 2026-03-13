@@ -1,5 +1,5 @@
 import "dotenv/config";
-import { PrismaClient, ItemCondition, DeliveryOption } from "../src/generated/prisma/client.js";
+import { PrismaClient, ItemCondition, DeliveryOption, RentalStatus } from "../src/generated/prisma/client.js";
 import { PrismaPg } from "@prisma/adapter-pg";
 
 const adapter = new PrismaPg({ connectionString: process.env["DATABASE_URL"]! });
@@ -7,6 +7,8 @@ const prisma = new PrismaClient({ adapter });
 
 async function main() {
   // Clean existing data
+  await prisma.rental.deleteMany();
+  await prisma.blockedDay.deleteMany();
   await prisma.cartItem.deleteMany();
   await prisma.cart.deleteMany();
   await prisma.rentableItem.deleteMany();
@@ -18,6 +20,7 @@ async function main() {
     data: {
       id: "00000000-0000-0000-0000-000000000001",
       email: "alice@example.com",
+      username: "alice",
       displayName: "Alice Johnson",
       avatarUrl: "https://i.pravatar.cc/150?u=alice",
     },
@@ -26,6 +29,7 @@ async function main() {
   const bob = await prisma.user.create({
     data: {
       email: "bob@example.com",
+      username: "bob",
       displayName: "Bob Martinez",
       avatarUrl: "https://i.pravatar.cc/150?u=bob",
     },
@@ -34,6 +38,7 @@ async function main() {
   const carol = await prisma.user.create({
     data: {
       email: "carol@example.com",
+      username: "carol",
       displayName: "Carol Chen",
       avatarUrl: "https://i.pravatar.cc/150?u=carol",
     },
@@ -215,7 +220,59 @@ async function main() {
     });
   }
 
-  console.log("Seeded 3 users and 15 items with rentable listings.");
+  // Fetch rentable items for reference
+  const rentableItems = await prisma.rentableItem.findMany({ include: { item: true } });
+  const drillRentable = rentableItems.find((r) => r.item.title === "DeWalt Power Drill")!;
+  const cameraRentable = rentableItems.find((r) => r.item.title === "Sony A7 III Camera")!;
+  const kayakRentable = rentableItems.find((r) => r.item.title === "Kayak (2-person)")!;
+
+  // Create blocked days
+  await prisma.blockedDay.createMany({
+    data: [
+      {
+        rentableItemId: drillRentable.id,
+        startDate: new Date("2026-04-01"),
+        endDate: new Date("2026-04-05"),
+        reason: "Owner vacation",
+      },
+      {
+        rentableItemId: cameraRentable.id,
+        startDate: new Date("2026-03-20"),
+        endDate: new Date("2026-03-22"),
+        reason: "Maintenance",
+      },
+      {
+        rentableItemId: kayakRentable.id,
+        startDate: new Date("2026-05-01"),
+        endDate: new Date("2026-05-10"),
+        reason: null,
+      },
+    ],
+  });
+
+  // Create sample rentals
+  await prisma.rental.createMany({
+    data: [
+      {
+        rentableItemId: drillRentable.id,
+        renterId: bob.id,
+        startDate: new Date("2026-03-01"),
+        endDate: new Date("2026-03-03"),
+        totalCost: 30,
+        status: RentalStatus.completed,
+      },
+      {
+        rentableItemId: cameraRentable.id,
+        renterId: carol.id,
+        startDate: new Date("2026-03-15"),
+        endDate: new Date("2026-03-20"),
+        totalCost: 250,
+        status: RentalStatus.active,
+      },
+    ],
+  });
+
+  console.log("Seeded 3 users, 15 items, 3 blocked days, and 2 rentals.");
 }
 
 main()

@@ -20,16 +20,25 @@ enum DeliveryOption {
   both
 }
 
+enum RentalStatus {
+  pending
+  active
+  completed
+  cancelled
+}
+
 model User {
   id          String   @id @default(uuid()) @db.Uuid
   email       String   @unique
+  username    String   @unique
   displayName String
   avatarUrl   String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  items Item[]
-  carts Cart[]
+  items   Item[]
+  carts   Cart[]
+  rentals Rental[]
 }
 
 model Item {
@@ -64,6 +73,32 @@ model RentableItem {
 
   item            Item             @relation(fields: [itemId], references: [id])
   cartItems       CartItem[]
+  blockedDays     BlockedDay[]
+  rentals         Rental[]
+}
+
+model BlockedDay {
+  id             String       @id @default(uuid()) @db.Uuid
+  rentableItemId String       @db.Uuid
+  startDate      DateTime
+  endDate        DateTime
+  reason         String?
+
+  rentableItem   RentableItem @relation(fields: [rentableItemId], references: [id])
+}
+
+model Rental {
+  id             String       @id @default(uuid()) @db.Uuid
+  rentableItemId String       @db.Uuid
+  renterId       String       @db.Uuid
+  startDate      DateTime
+  endDate        DateTime
+  totalCost      Decimal      @db.Decimal(10, 2)
+  status         RentalStatus @default(pending)
+  createdAt      DateTime     @default(now())
+
+  rentableItem   RentableItem @relation(fields: [rentableItemId], references: [id])
+  renter         User         @relation(fields: [renterId], references: [id])
 }
 
 model Cart {
