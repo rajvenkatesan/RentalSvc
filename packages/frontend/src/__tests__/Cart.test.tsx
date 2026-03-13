@@ -10,6 +10,19 @@ vi.mock("../lib/api", () => ({
   removeFromCart: vi.fn(),
   updateCartItem: vi.fn(),
   HARDCODED_USER_ID: "00000000-0000-0000-0000-000000000001",
+  getApiUserId: vi.fn().mockReturnValue("u1"),
+  setApiUserId: vi.fn(),
+}));
+
+let mockCurrentUser: { id: string; username: string; displayName: string } | null = null;
+
+vi.mock("../context/UserContext", () => ({
+  useUser: () => ({
+    currentUser: mockCurrentUser,
+    setCurrentUser: vi.fn(),
+    clearCurrentUser: vi.fn(),
+  }),
+  UserProvider: ({ children }: { children: React.ReactNode }) => children,
 }));
 
 const mockItem: api.CartItem = {
@@ -48,10 +61,22 @@ const mockItem: api.CartItem = {
 };
 
 beforeEach(() => {
+  vi.clearAllMocks();
+  mockCurrentUser = { id: "u1", username: "testuser", displayName: "Test User" };
   vi.mocked(api.removeFromCart).mockResolvedValue(null);
 });
 
 describe("Cart page", () => {
+  it("shows sign-in message when no user", async () => {
+    mockCurrentUser = null;
+    render(
+      <MemoryRouter>
+        <Cart />
+      </MemoryRouter>,
+    );
+    expect(screen.getByText("Please sign in to view your cart.")).toBeInTheDocument();
+  });
+
   it("shows empty cart message when no items", async () => {
     vi.mocked(api.fetchCart).mockResolvedValue({
       id: "c1",
