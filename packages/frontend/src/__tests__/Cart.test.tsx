@@ -9,10 +9,17 @@ vi.mock("../lib/api", () => ({
   fetchCart: vi.fn(),
   removeFromCart: vi.fn(),
   updateCartItem: vi.fn(),
+  checkout: vi.fn(),
   HARDCODED_USER_ID: "00000000-0000-0000-0000-000000000001",
   getApiUserId: vi.fn().mockReturnValue("u1"),
   setApiUserId: vi.fn(),
 }));
+
+const mockNavigate = vi.fn();
+vi.mock("react-router-dom", async () => {
+  const actual = await vi.importActual("react-router-dom");
+  return { ...actual, useNavigate: () => mockNavigate };
+});
 
 let mockCurrentUser: { id: string; username: string; displayName: string } | null = null;
 
@@ -147,5 +154,86 @@ describe("Cart page", () => {
     });
     await userEvent.click(screen.getByText("Remove"));
     expect(api.removeFromCart).toHaveBeenCalledWith("ci1");
+  });
+});
+
+describe("Cart checkout", () => {
+  it("checkout button is disabled when cart is empty", async () => {
+    vi.mocked(api.fetchCart).mockResolvedValue({
+      id: "c1",
+      userId: "u1",
+      createdAt: "",
+      updatedAt: "",
+      items: [],
+    });
+    render(
+      <MemoryRouter>
+        <Cart />
+      </MemoryRouter>,
+    );
+    await waitFor(() => {
+      expect(screen.getByText("Your cart is empty.")).toBeInTheDocument();
+    });
+    // When cart is empty, there should be no checkout button or it should be disabled
+    const checkoutBtn = screen.queryByRole("button", { name: /checkout/i });
+    if (checkoutBtn) {
+      expect(checkoutBtn).toBeDisabled();
+    }
+    // If no button at all when empty, that's also acceptable
+  });
+
+  it("checkout button is enabled when cart has items", async () => {
+    vi.mocked(api.fetchCart).mockResolvedValue({
+      id: "c1",
+      userId: "u1",
+      createdAt: "",
+      updatedAt: "",
+      items: [mockItem],
+    });
+    render(
+      <MemoryRouter>
+        <Cart />
+      </MemoryRouter>,
+    );
+    await waitFor(() => {
+      expect(screen.getByText("Power Washer")).toBeInTheDocument();
+    });
+    const checkoutBtn = screen.getByRole("button", { name: /checkout/i });
+    expect(checkoutBtn).toBeEnabled();
+  });
+
+  it("successful checkout navigates to /rentals", async () => {
+    vi.mocked(api.fetchCart)
+      .mockResolvedValueOnce({
+        id: "c1",
+        userId: "u1",
+        createdAt: "",
+        updatedAt: "",
+        items: [mockItem],
+      })
+      .mockResolvedValueOnce({
+        id: "c1",
+        userId: "u1",
+        createdAt: "",
+        updatedAt: "",
+        items: [],
+      });
+    vi.mocked(api.checkout).mockResolvedValue({ rentals: [] });
+
+    render(
+      <MemoryRouter>
+        <Cart />
+      </MemoryRouter>,
+    );
+    await waitFor(() => {
+      expect(screen.getByText("Power Washer")).toBeInTheDocument();
+    });
+    await userEvent.click(screen.getByRole("button", { name: /checkout/i }));
+    await waitFor(() => {
+      expect(api.checkout).toHaveBeenCalled();
+    });
+    await waitFor(() => {
+      expect(mockNavigate).toHaveBeenCalledWith("/rentals");
+    });
   });
 });

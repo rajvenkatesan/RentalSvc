@@ -10,6 +10,7 @@ import Cart from "./pages/Cart";
 import Dashboard from "./pages/Dashboard";
 import Register from "./pages/Register";
 import EditItem from "./pages/EditItem";
+import Rentals from "./pages/Rentals";
 
 function App() {
   return (
@@ -25,6 +26,7 @@ function App() {
             <Route path="/item/:id/edit" element={<EditItem />} />
             <Route path="/list-item" element={<ListItem />} />
             <Route path="/cart" element={<Cart />} />
+            <Route path="/rentals" element={<Rentals />} />
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/register" element={<Register />} />
           </Routes>

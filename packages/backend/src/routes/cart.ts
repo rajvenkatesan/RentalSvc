@@ -178,6 +178,131 @@ router.put("/:userId/items/:itemId", async (req, res) => {
   }
 });
 
+// POST /api/cart/:userId/checkout — convert cart items to rentals
+router.post("/:userId/checkout", async (req, res) => {
+  try {
+    const cart = await prisma.cart.findFirst({
+      where: { userId: req.params.userId },
+      include: {
+        items: {
+          include: {
+            rentableItem: true,
+          },
+        },
+      },
+    });
+
+    if (!cart || cart.items.length === 0) {
+      return res.status(400).json({
+        data: null,
+        error: "Cart is empty",
+        message: null,
+      });
+    }
+
+    // Validate each cart item is still available
+    const validItems: typeof cart.items = [];
+    const invalidItems: { cartItemId: string; reason: string }[] = [];
+
+    for (const cartItem of cart.items) {
+      // Check rentable item still exists and is available
+      const rentableItem = await prisma.rentableItem.findUnique({
+        where: { id: cartItem.rentableItemId },
+      });
+
+      if (!rentableItem || !rentableItem.isAvailable) {
+        invalidItems.push({
+          cartItemId: cartItem.id,
+          reason: "Item is no longer available",
+        });
+        continue;
+      }
+
+      // Check for overlapping rentals
+      const overlappingRental = await prisma.rental.findFirst({
+        where: {
+          rentableItemId: cartItem.rentableItemId,
+          status: { in: ["pending", "active"] },
+          startDate: { lt: cartItem.endDate },
+          endDate: { gt: cartItem.startDate },
+        },
+      });
+
+      if (overlappingRental) {
+        invalidItems.push({
+          cartItemId: cartItem.id,
+          reason: "Item is already rented for the requested dates",
+        });
+        continue;
+      }
+
+      // Check for overlapping blocked days
+      const overlappingBlocked = await prisma.blockedDay.findFirst({
+        where: {
+          rentableItemId: cartItem.rentableItemId,
+          startDate: { lt: cartItem.endDate },
+          endDate: { gt: cartItem.startDate },
+        },
+      });
+
+      if (overlappingBlocked) {
+        invalidItems.push({
+          cartItemId: cartItem.id,
+          reason: "Item is not available for the requested dates",
+        });
+        continue;
+      }
+
+      validItems.push(cartItem);
+    }
+
+    // Remove invalid items from cart
+    for (const invalid of invalidItems) {
+      await prisma.cartItem.delete({ where: { id: invalid.cartItemId } });
+    }
+
+    // If there are invalid items, return error with details
+    if (invalidItems.length > 0) {
+      return res.status(409).json({
+        data: { invalidItems },
+        error: "Some items are no longer available and have been removed from your cart",
+        message: null,
+      });
+    }
+
+    // All items valid — create rentals and remove cart items
+    const rentals = [];
+    for (const cartItem of validItems) {
+      const rental = await prisma.rental.create({
+        data: {
+          rentableItemId: cartItem.rentableItemId,
+          renterId: req.params.userId,
+          startDate: cartItem.startDate,
+          endDate: cartItem.endDate,
+          totalCost: cartItem.estimatedCost,
+          status: "pending",
+        },
+        include: {
+          rentableItem: {
+            include: { item: true },
+          },
+        },
+      });
+      rentals.push(rental);
+
+      await prisma.cartItem.delete({ where: { id: cartItem.id } });
+    }
+
+    res.status(201).json({
+      data: { rentals },
+      error: null,
+      message: "Checkout successful",
+    });
+  } catch (err) {
+    res.status(500).json({ data: null, error: "Internal server error", message: null });
+  }
+});
+
 // DELETE /api/cart/:userId/items/:itemId — remove item from cart
 router.delete("/:userId/items/:itemId", async (req, res) => {
   try {
