@@ -11,6 +11,10 @@ vi.mock("../lib/api", () => ({
   getApiUserId: vi.fn().mockReturnValue("test-id"),
 }));
 
+vi.mock("../context/CartContext", () => ({
+  useCart: () => ({ cartCount: 0, refreshCart: vi.fn() }),
+}));
+
 describe("Navbar", () => {
   it("renders brand name and navigation links", () => {
     render(

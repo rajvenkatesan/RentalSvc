@@ -29,6 +29,10 @@ vi.mock("../context/UserContext", () => ({
   UserProvider: ({ children }: { children: React.ReactNode }) => children,
 }));
 
+vi.mock("../context/CartContext", () => ({
+  useCart: () => ({ cartCount: 0, refreshCart: vi.fn() }),
+}));
+
 const MOCK_RENTABLE = {
   id: "ri1",
   itemId: "i1",

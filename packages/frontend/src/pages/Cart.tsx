@@ -7,10 +7,12 @@ import {
   type CartItem,
 } from "../lib/api";
 import { useUser } from "../context/UserContext";
+import { useCart } from "../context/CartContext";
 import DatePicker from "../components/DatePicker";
 
 export default function Cart() {
   const { currentUser } = useUser();
+  const { refreshCart } = useCart();
   const [cart, setCart] = useState<CartType | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -36,6 +38,7 @@ export default function Cart() {
     if (!currentUser) return;
     await removeFromCart(itemId);
     loadCart();
+    refreshCart();
   }
 
   async function handleDateChange(
@@ -46,6 +49,7 @@ export default function Cart() {
     if (!start || !end || !currentUser) return;
     await updateCartItem(cartItem.id, start, end);
     loadCart();
+    refreshCart();
   }
 
   const total =

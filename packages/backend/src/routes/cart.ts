@@ -105,6 +105,15 @@ router.post("/:userId/items", async (req, res) => {
     }
 
     const days = Math.max(1, Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)));
+
+    if (days < rentableItem.minRentalDays) {
+      return res.status(400).json({
+        data: null,
+        error: `Minimum rental duration is ${rentableItem.minRentalDays} day(s)`,
+        message: null,
+      });
+    }
+
     const estimatedCost = Number(rentableItem.dailyRate) * days;
 
     const cartItem = await prisma.cartItem.create({
