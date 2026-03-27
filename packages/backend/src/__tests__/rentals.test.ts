@@ -6,6 +6,7 @@ import app from "../app.js";
 describe("Rentals API", () => {
   beforeEach(() => {
     Object.values(prismaMock).forEach((model) => {
+      if (typeof model === "function") { (model as ReturnType<typeof import("vitest").vi.fn>).mockReset(); return; }
       Object.values(model).forEach((fn) => (fn as ReturnType<typeof import("vitest").vi.fn>).mockReset());
     });
   });

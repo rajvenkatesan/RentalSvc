@@ -6,8 +6,13 @@ import app from "../app.js";
 describe("Items API", () => {
   beforeEach(() => {
     Object.values(prismaMock).forEach((model) => {
+      if (typeof model === "function") {
+        (model as ReturnType<typeof import("vitest").vi.fn>).mockReset();
+        return;
+      }
       Object.values(model).forEach((fn) => (fn as ReturnType<typeof import("vitest").vi.fn>).mockReset());
     });
+    prismaMock.$transaction.mockImplementation((promises: unknown[]) => Promise.all(promises));
   });
 
   const sampleItem = {
@@ -143,8 +148,9 @@ describe("Items API", () => {
   });
 
   describe("DELETE /api/items/:id", () => {
-    it("deletes an existing item when owner", async () => {
+    it("deletes an item with no rentable (owner)", async () => {
       prismaMock.item.findUnique.mockResolvedValue(sampleItem);
+      prismaMock.rentableItem.findUnique.mockResolvedValue(null);
       prismaMock.item.delete.mockResolvedValue(sampleItem);
 
       const res = await request(app)
@@ -153,6 +159,22 @@ describe("Items API", () => {
 
       expect(res.status).toBe(200);
       expect(res.body.message).toBe("Item deleted");
+      expect(prismaMock.item.delete).toHaveBeenCalledWith({ where: { id: "item-1" } });
+    });
+
+    it("cascade deletes item with rentable and related records", async () => {
+      const rentable = { id: "rentable-1", itemId: "item-1" };
+      prismaMock.item.findUnique.mockResolvedValue(sampleItem);
+      prismaMock.rentableItem.findUnique.mockResolvedValue(rentable);
+      prismaMock.$transaction.mockResolvedValue([]);
+
+      const res = await request(app)
+        .delete("/api/items/item-1")
+        .set("x-user-id", "user-1");
+
+      expect(res.status).toBe(200);
+      expect(res.body.message).toBe("Item deleted");
+      expect(prismaMock.$transaction).toHaveBeenCalled();
     });
 
     it("returns 403 for non-owner", async () => {
