@@ -72,6 +72,18 @@ export interface Cart {
   items: CartItem[];
 }
 
+export interface Rental {
+  id: string;
+  rentableItemId: string;
+  renterId: string;
+  startDate: string;
+  endDate: string;
+  totalCost: string;
+  status: "pending" | "active" | "completed" | "cancelled";
+  createdAt: string;
+  rentableItem: RentableItem;
+}
+
 export interface BlockedDay {
   id: string;
   rentableItemId: string;
@@ -312,4 +324,42 @@ export function deleteBlockedDay(id: string): Promise<null> {
   return apiFetch<null>(`/api/blocked-days/${id}`, {
     method: "DELETE",
   });
+}
+
+// --- Rentals ---
+
+export function fetchRentals(): Promise<Rental[]> {
+  const userId = getApiUserId();
+  return apiFetch<Rental[]>(`/api/rentals?userId=${userId}`);
+}
+
+export function updateRentalStatus(
+  rentalId: string,
+  status: Rental["status"],
+): Promise<Rental> {
+  return apiFetch<Rental>(`/api/rentals/${rentalId}/status`, {
+    method: "PUT",
+    body: JSON.stringify({ status }),
+  });
+}
+
+// --- Checkout ---
+
+export async function checkout(): Promise<{ rentals?: Rental[]; error?: string }> {
+  const userId = getApiUserId();
+  const res = await fetch(`/api/cart/${userId}/checkout`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...(userId ? { "x-user-id": userId } : {}),
+    },
+  });
+  const json = await res.json();
+  if (res.status === 409) {
+    return { error: json.error ?? "Some items are no longer available" };
+  }
+  if (json.error || !res.ok) {
+    return { error: json.error ?? `Checkout failed: ${res.status}` };
+  }
+  return { rentals: json.data.rentals };
 }

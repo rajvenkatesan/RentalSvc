@@ -23,6 +23,12 @@ export default function Navbar() {
               List an Item
             </Link>
             <Link
+              to="/rentals"
+              className="text-gray-700 hover:text-indigo-600"
+            >
+              Rentals
+            </Link>
+            <Link
               to="/dashboard"
               className="text-gray-700 hover:text-indigo-600"
             >
@@ -42,6 +48,7 @@ export default function Navbar() {
           <div className="sm:hidden flex items-center gap-4">
             <Link to="/browse" className="text-sm text-gray-700">Browse</Link>
             <Link to="/list-item" className="text-sm text-gray-700">List</Link>
+            <Link to="/rentals" className="text-sm text-gray-700">Rentals</Link>
             <Link to="/dashboard" className="text-sm text-gray-700">Dash</Link>
             <Link to="/cart" className="relative text-sm text-gray-700">
               Cart
