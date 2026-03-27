@@ -12,12 +12,11 @@ vi.mock("react-router-dom", async () => {
   return { ...actual, useNavigate: () => mockNavigate };
 });
 
-const mockFetchUsers = vi.fn();
-const mockSetApiUserId = vi.fn();
+const mockFetchUserByUsername = vi.fn();
 
 vi.mock("../lib/api", () => ({
-  fetchUsers: (...args: unknown[]) => mockFetchUsers(...args),
-  setApiUserId: (...args: unknown[]) => mockSetApiUserId(...args),
+  fetchUserByUsername: (...args: unknown[]) => mockFetchUserByUsername(...args),
+  setApiUserId: vi.fn(),
   getApiUserId: vi.fn().mockReturnValue("test-id"),
 }));
 
@@ -35,35 +34,44 @@ beforeEach(() => {
 });
 
 describe("UserSelector", () => {
-  it("renders users fetched from API", async () => {
-    mockFetchUsers.mockResolvedValue([
-      { id: "u1", username: "alice", displayName: "Alice" },
-      { id: "u2", username: "bob", displayName: "Bob" },
-    ]);
+  it("renders sign-in form with username input and Sign In button", () => {
     renderWithProviders(<UserSelector />);
+    expect(screen.getByPlaceholderText("Username")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Sign In" })).toBeInTheDocument();
+  });
+
+  it("signing in with a valid username calls fetchUserByUsername and updates context", async () => {
+    mockFetchUserByUsername.mockResolvedValue({
+      id: "u1",
+      username: "alice",
+      displayName: "Alice",
+    });
+    renderWithProviders(<UserSelector />);
+
+    const input = screen.getByPlaceholderText("Username");
+    await userEvent.type(input, "alice");
+    await userEvent.click(screen.getByRole("button", { name: "Sign In" }));
+
     await waitFor(() => {
+      expect(mockFetchUserByUsername).toHaveBeenCalledWith("alice");
       expect(screen.getByText("Alice")).toBeInTheDocument();
-      expect(screen.getByText("Bob")).toBeInTheDocument();
     });
   });
 
-  it("shows 'Register New User' option", async () => {
-    mockFetchUsers.mockResolvedValue([]);
+  it("signing in with unknown username shows not found message with register link", async () => {
+    mockFetchUserByUsername.mockRejectedValue(new Error("Not found"));
     renderWithProviders(<UserSelector />);
+
+    const input = screen.getByPlaceholderText("Username");
+    await userEvent.type(input, "unknown");
+    await userEvent.click(screen.getByRole("button", { name: "Sign In" }));
+
     await waitFor(() => {
-      expect(screen.getByText("+ Register New User")).toBeInTheDocument();
+      expect(screen.getByText(/Username not found/)).toBeInTheDocument();
+      expect(screen.getByText("Register")).toBeInTheDocument();
     });
-  });
 
-  it("navigates to /register when 'Register New User' is selected", async () => {
-    mockFetchUsers.mockResolvedValue([
-      { id: "u1", username: "alice", displayName: "Alice" },
-    ]);
-    renderWithProviders(<UserSelector />);
-    await waitFor(() => expect(screen.getByText("Alice")).toBeInTheDocument());
-
-    const select = screen.getByRole("combobox");
-    await userEvent.selectOptions(select, "__register__");
+    await userEvent.click(screen.getByText("Register"));
     expect(mockNavigate).toHaveBeenCalledWith("/register");
   });
 });
