@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { fetchRentableItem, addToCart, deleteItem, type RentableItem } from "../lib/api";
 import { useUser } from "../context/UserContext";
+import { useCart } from "../context/CartContext";
 import DatePicker from "../components/DatePicker";
 import BlockedDaysCalendar from "../components/BlockedDaysCalendar";
 
@@ -9,6 +10,7 @@ export default function ItemDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { currentUser } = useUser();
+  const { refreshCart } = useCart();
   const [rentable, setRentable] = useState<RentableItem | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -37,6 +39,7 @@ export default function ItemDetail() {
       setError(result.error);
     } else {
       setAdded(true);
+      refreshCart();
     }
     setAdding(false);
   }

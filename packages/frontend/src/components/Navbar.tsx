@@ -1,18 +1,9 @@
 import { Link } from "react-router-dom";
-import { useEffect, useState } from "react";
-import { fetchCart } from "../lib/api";
 import UserSelector from "./UserSelector";
-import { useUser } from "../context/UserContext";
+import { useCart } from "../context/CartContext";
 
 export default function Navbar() {
-  const [cartCount, setCartCount] = useState(0);
-  const { currentUser } = useUser();
-
-  useEffect(() => {
-    fetchCart()
-      .then((cart) => setCartCount(cart.items.length))
-      .catch(() => setCartCount(0));
-  }, [currentUser]);
+  const { cartCount } = useCart();
 
   return (
     <nav className="bg-white shadow-sm border-b border-gray-200">
