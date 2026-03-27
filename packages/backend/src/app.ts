@@ -8,6 +8,7 @@ import cartRouter from "./routes/cart.js";
 import usersRouter from "./routes/users.js";
 import imagesRouter from "./routes/images.js";
 import blockedDaysRouter from "./routes/blockedDays.js";
+import rentalsRouter from "./routes/rentals.js";
 
 import type { Express } from "express";
 
@@ -32,5 +33,6 @@ app.use("/api/cart", cartRouter);
 app.use("/api/users", usersRouter);
 app.use("/api/images", imagesRouter);
 app.use("/api/blocked-days", blockedDaysRouter);
+app.use("/api/rentals", rentalsRouter);
 
 export default app;

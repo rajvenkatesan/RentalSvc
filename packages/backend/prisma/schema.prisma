@@ -71,7 +71,7 @@ model RentableItem {
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
 
-  item            Item             @relation(fields: [itemId], references: [id])
+  item            Item             @relation(fields: [itemId], references: [id], onDelete: Cascade)
   cartItems       CartItem[]
   blockedDays     BlockedDay[]
   rentals         Rental[]
@@ -84,7 +84,7 @@ model BlockedDay {
   endDate        DateTime
   reason         String?
 
-  rentableItem   RentableItem @relation(fields: [rentableItemId], references: [id])
+  rentableItem   RentableItem @relation(fields: [rentableItemId], references: [id], onDelete: Cascade)
 }
 
 model Rental {
@@ -97,7 +97,7 @@ model Rental {
   status         RentalStatus @default(pending)
   createdAt      DateTime     @default(now())
 
-  rentableItem   RentableItem @relation(fields: [rentableItemId], references: [id])
+  rentableItem   RentableItem @relation(fields: [rentableItemId], references: [id], onDelete: Cascade)
   renter         User         @relation(fields: [renterId], references: [id])
 }
 
@@ -119,6 +119,6 @@ model CartItem {
   endDate        DateTime
   estimatedCost  Decimal      @db.Decimal(10, 2)
 
-  cart           Cart         @relation(fields: [cartId], references: [id])
-  rentableItem   RentableItem @relation(fields: [rentableItemId], references: [id])
+  cart           Cart         @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  rentableItem   RentableItem @relation(fields: [rentableItemId], references: [id], onDelete: Cascade)
 }

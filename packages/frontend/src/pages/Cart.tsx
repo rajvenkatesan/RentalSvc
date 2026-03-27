@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   fetchCart,
   removeFromCart,
   updateCartItem,
+  checkout,
   type Cart as CartType,
   type CartItem,
 } from "../lib/api";
@@ -13,8 +15,11 @@ import DatePicker from "../components/DatePicker";
 export default function Cart() {
   const { currentUser } = useUser();
   const { refreshCart } = useCart();
+  const navigate = useNavigate();
   const [cart, setCart] = useState<CartType | null>(null);
   const [loading, setLoading] = useState(true);
+  const [checkingOut, setCheckingOut] = useState(false);
+  const [checkoutError, setCheckoutError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!currentUser) {
@@ -50,6 +55,27 @@ export default function Cart() {
     await updateCartItem(cartItem.id, start, end);
     loadCart();
     refreshCart();
+  }
+
+  async function handleCheckout() {
+    if (!currentUser) return;
+    setCheckingOut(true);
+    setCheckoutError(null);
+    try {
+      const result = await checkout();
+      if (result.error) {
+        setCheckoutError(result.error);
+        loadCart();
+        refreshCart();
+      } else {
+        refreshCart();
+        navigate("/rentals");
+      }
+    } catch {
+      setCheckoutError("Checkout failed. Please try again.");
+    } finally {
+      setCheckingOut(false);
+    }
   }
 
   const total =
@@ -123,6 +149,21 @@ export default function Cart() {
               ${total.toFixed(2)}
             </span>
           </div>
+
+          {checkoutError && (
+            <div className="mt-4 bg-red-50 border border-red-200 rounded-lg p-3 text-red-700 text-sm">
+              {checkoutError}
+            </div>
+          )}
+
+          {/* Checkout */}
+          <button
+            onClick={handleCheckout}
+            disabled={checkingOut}
+            className="mt-4 w-full bg-indigo-600 text-white py-3 px-6 rounded-lg font-semibold hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {checkingOut ? "Processing..." : "Checkout"}
+          </button>
         </>
       )}
     </div>

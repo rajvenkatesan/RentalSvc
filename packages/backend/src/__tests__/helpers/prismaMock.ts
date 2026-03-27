@@ -7,6 +7,7 @@ interface ModelMock {
   create: Mock;
   update: Mock;
   delete: Mock;
+  deleteMany: Mock;
 }
 
 // Mock all Prisma model methods
@@ -18,10 +19,24 @@ function createModelMock(): ModelMock {
     create: vi.fn(),
     update: vi.fn(),
     delete: vi.fn(),
+    deleteMany: vi.fn(),
   };
 }
 
-export const prismaMock: Record<string, ModelMock> = {
+interface PrismaMock {
+  $transaction: Mock;
+  item: ModelMock;
+  rentableItem: ModelMock;
+  cart: ModelMock;
+  cartItem: ModelMock;
+  user: ModelMock;
+  blockedDay: ModelMock;
+  rental: ModelMock;
+  [key: string]: ModelMock | Mock;
+}
+
+export const prismaMock: PrismaMock = {
+  $transaction: vi.fn((promises: unknown[]) => Promise.all(promises)),
   item: createModelMock(),
   rentableItem: createModelMock(),
   cart: createModelMock(),

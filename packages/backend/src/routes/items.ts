@@ -84,7 +84,19 @@ router.delete("/:id", async (req, res) => {
     if (!userId || userId !== existing.ownerId) {
       return res.status(403).json({ data: null, error: "Forbidden: only the owner can delete this item", message: null });
     }
-    await prisma.item.delete({ where: { id: req.params.id } });
+    // Delete item and all related records in a transaction
+    const rentable = await prisma.rentableItem.findUnique({ where: { itemId: req.params.id } });
+    if (rentable) {
+      await prisma.$transaction([
+        prisma.cartItem.deleteMany({ where: { rentableItemId: rentable.id } }),
+        prisma.blockedDay.deleteMany({ where: { rentableItemId: rentable.id } }),
+        prisma.rental.deleteMany({ where: { rentableItemId: rentable.id } }),
+        prisma.rentableItem.delete({ where: { id: rentable.id } }),
+        prisma.item.delete({ where: { id: req.params.id } }),
+      ]);
+    } else {
+      await prisma.item.delete({ where: { id: req.params.id } });
+    }
     res.json({ data: null, error: null, message: "Item deleted" });
   } catch (err) {
     res.status(500).json({ data: null, error: "Internal server error", message: null });
