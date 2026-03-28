@@ -19,6 +19,7 @@ export default function ItemDetail() {
   const [adding, setAdding] = useState(false);
   const [added, setAdded] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [imageIndex, setImageIndex] = useState(0);
 
   useEffect(() => {
     if (!id) return;
@@ -74,10 +75,49 @@ export default function ItemDetail() {
       </button>
 
       <div className="grid md:grid-cols-2 gap-8">
-        {/* Image */}
-        <div className="aspect-square bg-gray-100 rounded-lg flex items-center justify-center overflow-hidden">
-          {item.images?.[0] ? (
-            <img src={item.images[0]} alt={item.title} className="w-full h-full object-cover" />
+        {/* Image Carousel */}
+        <div className="relative aspect-square bg-gray-100 rounded-lg flex items-center justify-center overflow-hidden">
+          {item.images?.length ? (
+            <>
+              <img
+                src={item.images[imageIndex]}
+                alt={`${item.title} - image ${imageIndex + 1}`}
+                className="w-full h-full object-cover"
+              />
+              {item.images.length > 1 && (
+                <>
+                  {/* Left arrow */}
+                  <button
+                    onClick={() => setImageIndex((prev) => (prev - 1 + item.images!.length) % item.images!.length)}
+                    className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white rounded-full w-8 h-8 flex items-center justify-center"
+                    aria-label="Previous image"
+                  >
+                    &#8249;
+                  </button>
+                  {/* Right arrow */}
+                  <button
+                    onClick={() => setImageIndex((prev) => (prev + 1) % item.images!.length)}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white rounded-full w-8 h-8 flex items-center justify-center"
+                    aria-label="Next image"
+                  >
+                    &#8250;
+                  </button>
+                  {/* Dot indicators */}
+                  <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1.5">
+                    {item.images.map((_, i) => (
+                      <button
+                        key={i}
+                        onClick={() => setImageIndex(i)}
+                        className={`w-2 h-2 rounded-full transition-colors ${
+                          i === imageIndex ? "bg-white" : "bg-white/50"
+                        }`}
+                        aria-label={`Go to image ${i + 1}`}
+                      />
+                    ))}
+                  </div>
+                </>
+              )}
+            </>
           ) : (
             <span className="text-gray-400">No image</span>
           )}

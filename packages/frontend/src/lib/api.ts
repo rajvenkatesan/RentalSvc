@@ -8,8 +8,8 @@ export function setApiUserId(id: string | null) {
   _apiUserId = id;
 }
 
-export function getApiUserId(): string {
-  return _apiUserId ?? HARDCODED_USER_ID;
+export function getApiUserId(): string | null {
+  return _apiUserId;
 }
 
 // --- Types ---
@@ -236,6 +236,9 @@ export function deleteUser(id: string): Promise<null> {
 
 export function fetchCart(): Promise<Cart> {
   const userId = getApiUserId();
+  if (!userId) {
+    return Promise.resolve({ id: "", userId: "", createdAt: "", updatedAt: "", items: [] });
+  }
   return apiFetch<Cart>(`/api/cart/${userId}`);
 }
 
@@ -245,6 +248,7 @@ export async function addToCart(
   endDate: string,
 ): Promise<{ data?: CartItem; error?: string }> {
   const userId = getApiUserId();
+  if (!userId) return { error: "No user signed in" };
   const res = await fetch(`/api/cart/${userId}/items`, {
     method: "POST",
     headers: {
@@ -269,6 +273,7 @@ export function updateCartItem(
   endDate: string,
 ): Promise<CartItem> {
   const userId = getApiUserId();
+  if (!userId) return Promise.reject(new Error("No user signed in"));
   return apiFetch<CartItem>(`/api/cart/${userId}/items/${itemId}`, {
     method: "PUT",
     body: JSON.stringify({ startDate, endDate }),
@@ -279,6 +284,7 @@ export function removeFromCart(
   itemId: string,
 ): Promise<null> {
   const userId = getApiUserId();
+  if (!userId) return Promise.reject(new Error("No user signed in"));
   return apiFetch<null>(`/api/cart/${userId}/items/${itemId}`, {
     method: "DELETE",
   });
@@ -330,6 +336,7 @@ export function deleteBlockedDay(id: string): Promise<null> {
 
 export function fetchRentals(): Promise<Rental[]> {
   const userId = getApiUserId();
+  if (!userId) return Promise.resolve([]);
   return apiFetch<Rental[]>(`/api/rentals?userId=${userId}`);
 }
 
@@ -347,6 +354,7 @@ export function updateRentalStatus(
 
 export async function checkout(): Promise<{ rentals?: Rental[]; error?: string }> {
   const userId = getApiUserId();
+  if (!userId) return { error: "No user signed in" };
   const res = await fetch(`/api/cart/${userId}/checkout`, {
     method: "POST",
     headers: {

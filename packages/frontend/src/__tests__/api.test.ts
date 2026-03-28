@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import {
   fetchItems,
   fetchRentableItems,
@@ -9,7 +9,7 @@ import {
   registerUser,
   uploadImage,
   fetchBlockedDays,
-  HARDCODED_USER_ID,
+  setApiUserId,
 } from "../lib/api";
 
 const mockFetch = vi.fn();
@@ -30,8 +30,15 @@ function apiError(error: string) {
   };
 }
 
+const TEST_USER_ID = "test-user-001";
+
 beforeEach(() => {
   mockFetch.mockReset();
+  setApiUserId(TEST_USER_ID);
+});
+
+afterEach(() => {
+  setApiUserId(null);
 });
 
 describe("API client", () => {
@@ -55,15 +62,22 @@ describe("API client", () => {
   it("fetchCart calls correct user endpoint", async () => {
     mockFetch.mockResolvedValue(apiResponse({ id: "c1", items: [] }));
     const cart = await fetchCart();
-    expect(mockFetch.mock.calls[0][0]).toBe(`/api/cart/${HARDCODED_USER_ID}`);
+    expect(mockFetch.mock.calls[0][0]).toBe(`/api/cart/${TEST_USER_ID}`);
     expect(cart.id).toBe("c1");
+  });
+
+  it("fetchCart returns empty cart when no user is set", async () => {
+    setApiUserId(null);
+    const cart = await fetchCart();
+    expect(mockFetch).not.toHaveBeenCalled();
+    expect(cart.items).toEqual([]);
   });
 
   it("addToCart sends POST with body", async () => {
     mockFetch.mockResolvedValue(apiResponse({ id: "ci1" }));
     await addToCart("r1", "2025-06-01", "2025-06-05");
     const [url, opts] = mockFetch.mock.calls[0];
-    expect(url).toBe(`/api/cart/${HARDCODED_USER_ID}/items`);
+    expect(url).toBe(`/api/cart/${TEST_USER_ID}/items`);
     expect(opts.method).toBe("POST");
     expect(JSON.parse(opts.body)).toEqual({
       rentableItemId: "r1",
@@ -76,7 +90,7 @@ describe("API client", () => {
     mockFetch.mockResolvedValue(apiResponse(null));
     await removeFromCart("ci1");
     const [url, opts] = mockFetch.mock.calls[0];
-    expect(url).toBe(`/api/cart/${HARDCODED_USER_ID}/items/ci1`);
+    expect(url).toBe(`/api/cart/${TEST_USER_ID}/items/ci1`);
     expect(opts.method).toBe("DELETE");
   });
 
