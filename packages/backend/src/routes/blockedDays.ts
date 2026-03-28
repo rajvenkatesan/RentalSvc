@@ -12,6 +12,7 @@ router.get("/:rentableItemId", async (req, res) => {
     });
     res.json({ data: blockedDays, error: null, message: "Blocked days retrieved" });
   } catch (err) {
+    req.log.error({ err }, "Failed to list blocked days");
     res.status(500).json({ data: null, error: "Internal server error", message: null });
   }
 });
@@ -42,8 +43,16 @@ router.post("/:rentableItemId", async (req, res) => {
         reason,
       },
     });
+    req.log.info({
+      blockedDayId: blockedDay.id,
+      rentableItemId: req.params.rentableItemId,
+      startDate,
+      endDate,
+      reason,
+    }, "Blocked day created");
     res.status(201).json({ data: blockedDay, error: null, message: "Blocked day created" });
   } catch (err) {
+    req.log.error({ err }, "Failed to create blocked day");
     res.status(500).json({ data: null, error: "Internal server error", message: null });
   }
 });
@@ -63,8 +72,10 @@ router.delete("/:id", async (req, res) => {
       return res.status(403).json({ data: null, error: "Forbidden: only the owner can delete blocked days", message: null });
     }
     await prisma.blockedDay.delete({ where: { id: req.params.id } });
+    req.log.info({ blockedDayId: req.params.id }, "Blocked day deleted");
     res.json({ data: null, error: null, message: "Blocked day deleted" });
   } catch (err) {
+    req.log.error({ err }, "Failed to delete blocked day");
     res.status(500).json({ data: null, error: "Internal server error", message: null });
   }
 });

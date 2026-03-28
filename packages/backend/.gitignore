@@ -10,3 +10,6 @@ uploads/*
 
 # SQLite image storage
 data/
+
+# Pino trace log
+trace.log

@@ -39,6 +39,7 @@ router.get("/", async (req, res) => {
 
     res.json({ data: rentableItems, error: null, message: "Rentable items retrieved" });
   } catch (err) {
+    req.log.error({ err }, "Failed to list rentable items");
     res.status(500).json({ data: null, error: "Internal server error", message: null });
   }
 });
@@ -62,6 +63,7 @@ router.get("/:id", async (req, res) => {
     }
     res.json({ data: rentableItem, error: null, message: "Rentable item retrieved" });
   } catch (err) {
+    req.log.error({ err }, "Failed to get rentable item");
     res.status(500).json({ data: null, error: "Internal server error", message: null });
   }
 });
@@ -90,8 +92,15 @@ router.post("/", async (req, res) => {
         isAvailable: isAvailable ?? true,
       },
     });
+    req.log.info({
+      rentableItemId: rentableItem.id,
+      itemId,
+      dailyRate,
+      deposit: securityDeposit,
+    }, "Rentable item created");
     res.status(201).json({ data: rentableItem, error: null, message: "Rentable item created" });
   } catch (err) {
+    req.log.error({ err }, "Failed to create rentable item");
     res.status(500).json({ data: null, error: "Internal server error", message: null });
   }
 });
@@ -109,6 +118,7 @@ router.put("/:id", async (req, res) => {
     });
     res.json({ data: rentableItem, error: null, message: "Rentable item updated" });
   } catch (err) {
+    req.log.error({ err }, "Failed to update rentable item");
     res.status(500).json({ data: null, error: "Internal server error", message: null });
   }
 });
@@ -123,6 +133,7 @@ router.delete("/:id", async (req, res) => {
     await prisma.rentableItem.delete({ where: { id: req.params.id } });
     res.json({ data: null, error: null, message: "Rentable item deleted" });
   } catch (err) {
+    req.log.error({ err }, "Failed to delete rentable item");
     res.status(500).json({ data: null, error: "Internal server error", message: null });
   }
 });

@@ -2,7 +2,7 @@
 
 ## Task #1 - Introduce proper logging and tracing of all user actions
 
-all errors needs to be logged. All user calls, routing, frontend, backend including database calls needs to be traced using some unique request ID and be stored remotely to some external storage. For now simulate this behavior by storing this in a local trace.log file. In future, i should be able to migrate this easily to external storage or publish via kafka.
+all errors needs to be logged. All user calls, routing, frontend, backend including database calls needs to be traced using some unique request ID, customer ID and name, etc. that be stored remotely to some external storage. For now simulate this behavior by storing this in a local trace.log file. In future, i should be able to migrate this easily to external storage or publish via kafka.
 
 ## Task #2 - Image storage
 

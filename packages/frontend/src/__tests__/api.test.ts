@@ -15,6 +15,9 @@ import {
 const mockFetch = vi.fn();
 vi.stubGlobal("fetch", mockFetch);
 
+const MOCK_REQUEST_ID = "test-request-id-0001";
+vi.stubGlobal("crypto", { randomUUID: () => MOCK_REQUEST_ID });
+
 function apiResponse<T>(data: T) {
   return {
     ok: true,
@@ -46,7 +49,10 @@ describe("API client", () => {
     mockFetch.mockResolvedValue(apiResponse([]));
     const result = await fetchItems();
     expect(mockFetch).toHaveBeenCalledWith("/api/items", expect.objectContaining({
-      headers: expect.objectContaining({ "Content-Type": "application/json" }),
+      headers: expect.objectContaining({
+        "Content-Type": "application/json",
+        "x-request-id": MOCK_REQUEST_ID,
+      }),
     }));
     expect(result).toEqual([]);
   });
@@ -96,7 +102,7 @@ describe("API client", () => {
 
   it("throws on API error response", async () => {
     mockFetch.mockResolvedValue(apiError("Not found"));
-    await expect(fetchItems()).rejects.toThrow("Not found");
+    await expect(fetchItems()).rejects.toThrow(`[req-id: ${MOCK_REQUEST_ID}] Not found`);
   });
 
   it("fetchUsers calls the correct endpoint", async () => {

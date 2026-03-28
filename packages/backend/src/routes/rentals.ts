@@ -31,6 +31,7 @@ router.get("/", async (req, res) => {
 
     res.json({ data: rentals, error: null, message: "Rentals retrieved" });
   } catch (err) {
+    req.log.error({ err }, "Failed to list rentals");
     res.status(500).json({ data: null, error: "Internal server error", message: null });
   }
 });
@@ -49,6 +50,7 @@ router.get("/:id", async (req, res) => {
 
     res.json({ data: rental, error: null, message: "Rental retrieved" });
   } catch (err) {
+    req.log.error({ err }, "Failed to get rental");
     res.status(500).json({ data: null, error: "Internal server error", message: null });
   }
 });
@@ -88,8 +90,18 @@ router.put("/:id/status", async (req, res) => {
       include: rentalInclude,
     });
 
+    req.log.info({
+      rentalId: req.params.id,
+      itemTitle: updated.rentableItem.item.title,
+      oldStatus: rental.status,
+      newStatus: status,
+      totalCost: Number(rental.totalCost),
+      startDate: rental.startDate,
+      endDate: rental.endDate,
+    }, "Rental status changed");
     res.json({ data: updated, error: null, message: "Rental status updated" });
   } catch (err) {
+    req.log.error({ err }, "Failed to update rental status");
     res.status(500).json({ data: null, error: "Internal server error", message: null });
   }
 });
