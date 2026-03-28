@@ -1,6 +1,7 @@
 import express from "express";
 import cors from "cors";
 import path from "path";
+import fs from "fs";
 import { fileURLToPath } from "url";
 import itemsRouter from "./routes/items.js";
 import rentableItemsRouter from "./routes/rentableItems.js";
@@ -20,8 +21,14 @@ const app: Express = express();
 app.use(cors());
 app.use(express.json());
 
-// Serve uploaded files
-app.use("/uploads", express.static(path.resolve(__dirname, "../uploads")));
+// Backward-compat: serve old /uploads/:filename from filesystem if the file exists
+app.get("/uploads/:filename", (req, res, next) => {
+  const filePath = path.resolve(__dirname, "../uploads", req.params.filename);
+  if (fs.existsSync(filePath)) {
+    return res.sendFile(filePath);
+  }
+  next();
+});
 
 app.get("/api/health", (_req, res) => {
   res.json({ status: "ok" });

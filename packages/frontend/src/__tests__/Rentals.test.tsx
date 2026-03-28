@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import Rentals from "../pages/Rentals";
@@ -6,6 +6,7 @@ import * as api from "../lib/api";
 
 vi.mock("../lib/api", () => ({
   fetchRentals: vi.fn(),
+  updateRentalStatus: vi.fn(),
   checkout: vi.fn(),
   getApiUserId: vi.fn().mockReturnValue("u1"),
   setApiUserId: vi.fn(),
@@ -149,5 +150,88 @@ describe("Rentals page", () => {
     });
     // Status should be displayed somewhere
     expect(screen.getByText(/active/i)).toBeInTheDocument();
+  });
+
+  it("shows cancel button for pending rentals", async () => {
+    vi.mocked(api.fetchRentals).mockResolvedValue([makeRental({ status: "pending" })]);
+    render(
+      <MemoryRouter>
+        <Rentals />
+      </MemoryRouter>,
+    );
+    await waitFor(() => {
+      expect(screen.getByText("Power Drill")).toBeInTheDocument();
+    });
+    expect(screen.getByRole("button", { name: "Cancel" })).toBeInTheDocument();
+  });
+
+  it("shows cancel button for active rentals", async () => {
+    vi.mocked(api.fetchRentals).mockResolvedValue([makeRental({ status: "active" })]);
+    render(
+      <MemoryRouter>
+        <Rentals />
+      </MemoryRouter>,
+    );
+    await waitFor(() => {
+      expect(screen.getByText("Power Drill")).toBeInTheDocument();
+    });
+    expect(screen.getByRole("button", { name: "Cancel" })).toBeInTheDocument();
+  });
+
+  it("does NOT show cancel button for completed or cancelled rentals", async () => {
+    vi.mocked(api.fetchRentals).mockResolvedValue([
+      makeRental({ id: "r1", status: "completed" }),
+      makeRental({ id: "r2", status: "cancelled" }),
+    ]);
+    render(
+      <MemoryRouter>
+        <Rentals />
+      </MemoryRouter>,
+    );
+    await waitFor(() => {
+      expect(screen.getAllByText("Power Drill")).toHaveLength(2);
+    });
+    expect(screen.queryByRole("button", { name: "Cancel" })).not.toBeInTheDocument();
+  });
+
+  it("calls updateRentalStatus when cancel is confirmed", async () => {
+    const rental = makeRental({ status: "pending" });
+    vi.mocked(api.fetchRentals).mockResolvedValue([rental]);
+    vi.mocked(api.updateRentalStatus).mockResolvedValue({ ...rental, status: "cancelled" });
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+
+    render(
+      <MemoryRouter>
+        <Rentals />
+      </MemoryRouter>,
+    );
+    await waitFor(() => {
+      expect(screen.getByText("Power Drill")).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+
+    await waitFor(() => {
+      expect(api.updateRentalStatus).toHaveBeenCalledWith("rental1", "cancelled");
+    });
+  });
+
+  it("does NOT call updateRentalStatus when cancel is declined", async () => {
+    const rental = makeRental({ status: "active" });
+    vi.mocked(api.fetchRentals).mockResolvedValue([rental]);
+    vi.spyOn(window, "confirm").mockReturnValue(false);
+
+    render(
+      <MemoryRouter>
+        <Rentals />
+      </MemoryRouter>,
+    );
+    await waitFor(() => {
+      expect(screen.getByText("Power Drill")).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+
+    expect(api.updateRentalStatus).not.toHaveBeenCalled();
   });
 });

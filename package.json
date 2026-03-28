@@ -9,7 +9,8 @@
     "onlyBuiltDependencies": [
       "prisma",
       "@prisma/engines",
-      "esbuild"
+      "esbuild",
+      "better-sqlite3"
     ]
   }
 }
