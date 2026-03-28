@@ -1,7 +1,14 @@
 import { Router } from "express";
+import { z } from "zod";
 import prisma from "../lib/prisma.js";
 
 const router: Router = Router();
+
+const createBlockedDaySchema = z.object({
+  startDate: z.string().min(1),
+  endDate: z.string().min(1),
+  reason: z.string().optional(),
+});
 
 // GET /api/blocked-days/:rentableItemId — list blocked days for a rentable item
 router.get("/:rentableItemId", async (req, res) => {
@@ -31,10 +38,17 @@ router.post("/:rentableItemId", async (req, res) => {
     if (!userId || userId !== rentableItem.item.ownerId) {
       return res.status(403).json({ data: null, error: "Forbidden: only the owner can manage blocked days", message: null });
     }
-    const { startDate, endDate, reason } = req.body;
-    if (!startDate || !endDate) {
-      return res.status(400).json({ data: null, error: "Missing required fields: startDate, endDate", message: null });
+
+    const parsed = createBlockedDaySchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({
+        data: null,
+        error: parsed.error.issues.map(i => i.message).join(", "),
+        message: null,
+      });
     }
+
+    const { startDate, endDate, reason } = parsed.data;
     const blockedDay = await prisma.blockedDay.create({
       data: {
         rentableItemId: req.params.rentableItemId,

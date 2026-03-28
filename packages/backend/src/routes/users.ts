@@ -1,17 +1,28 @@
 import { Router } from "express";
+import { z } from "zod";
 import { randomUUID } from "crypto";
 import prisma from "../lib/prisma.js";
 
 const router: Router = Router();
 
+const createUserSchema = z.object({
+  username: z.string().min(1).max(50),
+  displayName: z.string().optional(),
+});
+
 // POST /api/users — register a new user
 router.post("/", async (req, res) => {
   try {
-    const { username, displayName } = req.body;
-
-    if (!username || typeof username !== "string" || !username.trim()) {
-      return res.status(400).json({ data: null, error: "Missing required field: username", message: null });
+    const parsed = createUserSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({
+        data: null,
+        error: parsed.error.issues.map(i => i.message).join(", "),
+        message: null,
+      });
     }
+
+    const { username, displayName } = parsed.data;
 
     const existing = await prisma.user.findUnique({ where: { username: username.trim() } });
     if (existing) {

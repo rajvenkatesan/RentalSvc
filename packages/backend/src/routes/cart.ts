@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { z } from "zod";
 import prisma from "../lib/prisma.js";
 
 const router: Router = Router();
@@ -7,38 +8,34 @@ function fmtDate(d: Date): string {
   return `${d.getUTCMonth() + 1}/${d.getUTCDate()}/${d.getUTCFullYear()}`;
 }
 
+const cartItemInclude = {
+  items: {
+    include: {
+      rentableItem: {
+        include: { item: true },
+      },
+    },
+  },
+};
+
+async function getOrCreateCart(userId: string, include?: object) {
+  let cart = await prisma.cart.findFirst({ where: { userId }, include });
+  if (!cart) {
+    cart = await prisma.cart.create({ data: { userId }, include });
+  }
+  return cart;
+}
+
+const addToCartSchema = z.object({
+  rentableItemId: z.string().min(1),
+  startDate: z.string().min(1),
+  endDate: z.string().min(1),
+});
+
 // GET /api/cart/:userId — get cart for user
 router.get("/:userId", async (req, res) => {
   try {
-    let cart = await prisma.cart.findFirst({
-      where: { userId: req.params.userId },
-      include: {
-        items: {
-          include: {
-            rentableItem: {
-              include: { item: true },
-            },
-          },
-        },
-      },
-    });
-
-    if (!cart) {
-      // Create an empty cart for this user
-      cart = await prisma.cart.create({
-        data: { userId: req.params.userId },
-        include: {
-          items: {
-            include: {
-              rentableItem: {
-                include: { item: true },
-              },
-            },
-          },
-        },
-      });
-    }
-
+    const cart = await getOrCreateCart(req.params.userId, cartItemInclude);
     res.json({ data: cart, error: null, message: "Cart retrieved" });
   } catch (err) {
     req.log.error({ err }, "Failed to get cart");
@@ -49,24 +46,19 @@ router.get("/:userId", async (req, res) => {
 // POST /api/cart/:userId/items — add item to cart
 router.post("/:userId/items", async (req, res) => {
   try {
-    const { rentableItemId, startDate, endDate } = req.body;
-    if (!rentableItemId || !startDate || !endDate) {
+    const parsed = addToCartSchema.safeParse(req.body);
+    if (!parsed.success) {
       return res.status(400).json({
         data: null,
-        error: "Missing required fields: rentableItemId, startDate, endDate",
+        error: parsed.error.issues.map(i => i.message).join(", "),
         message: null,
       });
     }
 
+    const { rentableItemId, startDate, endDate } = parsed.data;
+
     // Find or create cart for user
-    let cart = await prisma.cart.findFirst({
-      where: { userId: req.params.userId },
-    });
-    if (!cart) {
-      cart = await prisma.cart.create({
-        data: { userId: req.params.userId },
-      });
-    }
+    const cart = await getOrCreateCart(req.params.userId);
 
     // Look up the rentable item to compute estimated cost
     const rentableItem = await prisma.rentableItem.findUnique({
@@ -224,17 +216,30 @@ router.post("/:userId/checkout", async (req, res) => {
       });
     }
 
-    // Validate each cart item is still available
+    // Collect all rentableItemIds for batch queries
+    const rentableItemIds = cart.items.map((ci) => ci.rentableItemId);
+
+    // Batch: fetch all overlapping rentals and blocked days in two queries
+    const allOverlappingRentals = await prisma.rental.findMany({
+      where: {
+        rentableItemId: { in: rentableItemIds },
+        status: { in: ["pending", "active"] },
+      },
+    });
+
+    const allOverlappingBlocked = await prisma.blockedDay.findMany({
+      where: {
+        rentableItemId: { in: rentableItemIds },
+      },
+    });
+
+    // Validate each cart item against batch results
     const validItems: typeof cart.items = [];
     const invalidItems: { cartItemId: string; reason: string }[] = [];
 
     for (const cartItem of cart.items) {
-      // Check rentable item still exists and is available
-      const rentableItem = await prisma.rentableItem.findUnique({
-        where: { id: cartItem.rentableItemId },
-      });
-
-      if (!rentableItem || !rentableItem.isAvailable) {
+      // Check rentable item is available (already loaded via include)
+      if (!cartItem.rentableItem || !cartItem.rentableItem.isAvailable) {
         invalidItems.push({
           cartItemId: cartItem.id,
           reason: "Item is no longer available",
@@ -242,15 +247,13 @@ router.post("/:userId/checkout", async (req, res) => {
         continue;
       }
 
-      // Check for overlapping rentals
-      const overlappingRentals = await prisma.rental.findMany({
-        where: {
-          rentableItemId: cartItem.rentableItemId,
-          status: { in: ["pending", "active"] },
-          startDate: { lt: cartItem.endDate },
-          endDate: { gt: cartItem.startDate },
-        },
-      });
+      // Filter overlapping rentals for this cart item
+      const overlappingRentals = allOverlappingRentals.filter(
+        (r) =>
+          r.rentableItemId === cartItem.rentableItemId &&
+          r.startDate < cartItem.endDate &&
+          r.endDate > cartItem.startDate,
+      );
 
       if (overlappingRentals.length > 0) {
         const ranges = overlappingRentals.map((r) => `${fmtDate(r.startDate)} to ${fmtDate(r.endDate)}`).join(", ");
@@ -261,14 +264,13 @@ router.post("/:userId/checkout", async (req, res) => {
         continue;
       }
 
-      // Check for overlapping blocked days
-      const overlappingBlockedDays = await prisma.blockedDay.findMany({
-        where: {
-          rentableItemId: cartItem.rentableItemId,
-          startDate: { lt: cartItem.endDate },
-          endDate: { gt: cartItem.startDate },
-        },
-      });
+      // Filter overlapping blocked days for this cart item
+      const overlappingBlockedDays = allOverlappingBlocked.filter(
+        (b) =>
+          b.rentableItemId === cartItem.rentableItemId &&
+          b.startDate < cartItem.endDate &&
+          b.endDate > cartItem.startDate,
+      );
 
       if (overlappingBlockedDays.length > 0) {
         const ranges = overlappingBlockedDays.map((b) => `${fmtDate(b.startDate)} to ${fmtDate(b.endDate)}`).join(", ");
@@ -296,28 +298,31 @@ router.post("/:userId/checkout", async (req, res) => {
       });
     }
 
-    // All items valid — create rentals and remove cart items
-    const rentals = [];
-    for (const cartItem of validItems) {
-      const rental = await prisma.rental.create({
-        data: {
-          rentableItemId: cartItem.rentableItemId,
-          renterId: req.params.userId,
-          startDate: cartItem.startDate,
-          endDate: cartItem.endDate,
-          totalCost: cartItem.estimatedCost,
-          status: "pending",
-        },
-        include: {
-          rentableItem: {
-            include: { item: true },
+    // All items valid — create rentals and remove cart items atomically
+    const rentals = await prisma.$transaction(async (tx: typeof prisma) => {
+      const createdRentals = [];
+      for (const cartItem of validItems) {
+        const rental = await tx.rental.create({
+          data: {
+            rentableItemId: cartItem.rentableItemId,
+            renterId: req.params.userId,
+            startDate: cartItem.startDate,
+            endDate: cartItem.endDate,
+            totalCost: cartItem.estimatedCost,
+            status: "pending",
           },
-        },
-      });
-      rentals.push(rental);
+          include: {
+            rentableItem: {
+              include: { item: true },
+            },
+          },
+        });
+        createdRentals.push(rental);
 
-      await prisma.cartItem.delete({ where: { id: cartItem.id } });
-    }
+        await tx.cartItem.delete({ where: { id: cartItem.id } });
+      }
+      return createdRentals;
+    });
 
     for (const rental of rentals) {
       req.log.info({
@@ -328,7 +333,7 @@ router.post("/:userId/checkout", async (req, res) => {
         totalCost: Number(rental.totalCost),
       }, "Rental created from checkout");
     }
-    const totalCost = rentals.reduce((sum, r) => sum + Number(r.totalCost), 0);
+    const totalCost = rentals.reduce((sum: number, r: { totalCost: unknown }) => sum + Number(r.totalCost), 0);
     req.log.info({ userId: req.params.userId, rentalCount: rentals.length, totalCost }, "Checkout completed");
     res.status(201).json({
       data: { rentals },
