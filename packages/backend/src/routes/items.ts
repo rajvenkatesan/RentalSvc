@@ -84,11 +84,21 @@ router.delete("/:id", async (req, res) => {
     if (!userId || userId !== existing.ownerId) {
       return res.status(403).json({ data: null, error: "Forbidden: only the owner can delete this item", message: null });
     }
-    // Delete item and all related records in a transaction
+    // Check for active/pending rentals and cart items before deleting
     const rentable = await prisma.rentableItem.findUnique({ where: { itemId: req.params.id } });
     if (rentable) {
+      const activeRentals = await prisma.rental.count({
+        where: { rentableItemId: rentable.id, status: { in: ["pending", "active"] } },
+      });
+      if (activeRentals > 0) {
+        return res.status(409).json({ data: null, error: "Cannot delete: item has active rentals", message: null });
+      }
+      const cartItems = await prisma.cartItem.count({ where: { rentableItemId: rentable.id } });
+      if (cartItems > 0) {
+        return res.status(409).json({ data: null, error: "Cannot delete: item is in users' carts", message: null });
+      }
+      // Safe to delete — only completed/cancelled rentals and blocked days remain
       await prisma.$transaction([
-        prisma.cartItem.deleteMany({ where: { rentableItemId: rentable.id } }),
         prisma.blockedDay.deleteMany({ where: { rentableItemId: rentable.id } }),
         prisma.rental.deleteMany({ where: { rentableItemId: rentable.id } }),
         prisma.rentableItem.delete({ where: { id: rentable.id } }),
