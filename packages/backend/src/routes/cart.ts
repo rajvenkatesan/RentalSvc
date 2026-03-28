@@ -3,6 +3,10 @@ import prisma from "../lib/prisma.js";
 
 const router: Router = Router();
 
+function fmtDate(d: Date): string {
+  return `${d.getUTCMonth() + 1}/${d.getUTCDate()}/${d.getUTCFullYear()}`;
+}
+
 // GET /api/cart/:userId — get cart for user
 router.get("/:userId", async (req, res) => {
   try {
@@ -80,7 +84,7 @@ router.post("/:userId/items", async (req, res) => {
     const end = new Date(endDate);
 
     // Check for overlapping rentals (pending or active)
-    const overlappingRental = await prisma.rental.findFirst({
+    const overlappingRentals = await prisma.rental.findMany({
       where: {
         rentableItemId,
         status: { in: ["pending", "active"] },
@@ -88,20 +92,22 @@ router.post("/:userId/items", async (req, res) => {
         endDate: { gt: start },
       },
     });
-    if (overlappingRental) {
-      return res.status(409).json({ data: null, error: "This item is already rented for the requested dates", message: null });
+    if (overlappingRentals.length > 0) {
+      const ranges = overlappingRentals.map((r) => `${fmtDate(r.startDate)} to ${fmtDate(r.endDate)}`).join(", ");
+      return res.status(409).json({ data: null, error: `This item is already rented from ${ranges}`, message: null });
     }
 
     // Check for overlapping blocked days
-    const overlappingBlocked = await prisma.blockedDay.findFirst({
+    const overlappingBlocked = await prisma.blockedDay.findMany({
       where: {
         rentableItemId,
         startDate: { lt: end },
         endDate: { gt: start },
       },
     });
-    if (overlappingBlocked) {
-      return res.status(409).json({ data: null, error: "This item is not available for the requested dates", message: null });
+    if (overlappingBlocked.length > 0) {
+      const ranges = overlappingBlocked.map((b) => `${fmtDate(b.startDate)} to ${fmtDate(b.endDate)}`).join(", ");
+      return res.status(409).json({ data: null, error: `This item is blocked from ${ranges}`, message: null });
     }
 
     const days = Math.max(1, Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)));
@@ -219,7 +225,7 @@ router.post("/:userId/checkout", async (req, res) => {
       }
 
       // Check for overlapping rentals
-      const overlappingRental = await prisma.rental.findFirst({
+      const overlappingRentals = await prisma.rental.findMany({
         where: {
           rentableItemId: cartItem.rentableItemId,
           status: { in: ["pending", "active"] },
@@ -228,16 +234,17 @@ router.post("/:userId/checkout", async (req, res) => {
         },
       });
 
-      if (overlappingRental) {
+      if (overlappingRentals.length > 0) {
+        const ranges = overlappingRentals.map((r) => `${fmtDate(r.startDate)} to ${fmtDate(r.endDate)}`).join(", ");
         invalidItems.push({
           cartItemId: cartItem.id,
-          reason: "Item is already rented for the requested dates",
+          reason: `Item is already rented from ${ranges}`,
         });
         continue;
       }
 
       // Check for overlapping blocked days
-      const overlappingBlocked = await prisma.blockedDay.findFirst({
+      const overlappingBlockedDays = await prisma.blockedDay.findMany({
         where: {
           rentableItemId: cartItem.rentableItemId,
           startDate: { lt: cartItem.endDate },
@@ -245,10 +252,11 @@ router.post("/:userId/checkout", async (req, res) => {
         },
       });
 
-      if (overlappingBlocked) {
+      if (overlappingBlockedDays.length > 0) {
+        const ranges = overlappingBlockedDays.map((b) => `${fmtDate(b.startDate)} to ${fmtDate(b.endDate)}`).join(", ");
         invalidItems.push({
           cartItemId: cartItem.id,
-          reason: "Item is not available for the requested dates",
+          reason: `Item is blocked from ${ranges}`,
         });
         continue;
       }

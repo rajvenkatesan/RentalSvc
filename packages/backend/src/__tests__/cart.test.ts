@@ -63,8 +63,8 @@ describe("Cart API", () => {
         dailyRate: 25,
         isAvailable: true,
       });
-      prismaMock.rental.findFirst.mockResolvedValue(null);
-      prismaMock.blockedDay.findFirst.mockResolvedValue(null);
+      prismaMock.rental.findMany.mockResolvedValue([]);
+      prismaMock.blockedDay.findMany.mockResolvedValue([]);
       prismaMock.cartItem.create.mockResolvedValue(sampleCartItem);
 
       const res = await request(app)
@@ -87,8 +87,8 @@ describe("Cart API", () => {
         dailyRate: 25,
         isAvailable: true,
       });
-      prismaMock.rental.findFirst.mockResolvedValue(null);
-      prismaMock.blockedDay.findFirst.mockResolvedValue(null);
+      prismaMock.rental.findMany.mockResolvedValue([]);
+      prismaMock.blockedDay.findMany.mockResolvedValue([]);
       prismaMock.cartItem.create.mockResolvedValue(sampleCartItem);
 
       const res = await request(app)
@@ -130,13 +130,13 @@ describe("Cart API", () => {
         dailyRate: 25,
         isAvailable: true,
       });
-      prismaMock.rental.findFirst.mockResolvedValue({
+      prismaMock.rental.findMany.mockResolvedValue([{
         id: "rental-1",
         rentableItemId: "ri-1",
         status: "active",
         startDate: new Date("2025-01-03"),
         endDate: new Date("2025-01-10"),
-      });
+      }]);
 
       const res = await request(app)
         .post("/api/cart/user-1/items")
@@ -147,7 +147,7 @@ describe("Cart API", () => {
         });
 
       expect(res.status).toBe(409);
-      expect(res.body.error).toBe("This item is already rented for the requested dates");
+      expect(res.body.error).toBe("This item is already rented from 1/3/2025 to 1/10/2025");
     });
 
     it("returns 409 when dates overlap with blocked days", async () => {
@@ -157,14 +157,14 @@ describe("Cart API", () => {
         dailyRate: 25,
         isAvailable: true,
       });
-      prismaMock.rental.findFirst.mockResolvedValue(null);
-      prismaMock.blockedDay.findFirst.mockResolvedValue({
+      prismaMock.rental.findMany.mockResolvedValue([]);
+      prismaMock.blockedDay.findMany.mockResolvedValue([{
         id: "bd-1",
         rentableItemId: "ri-1",
         startDate: new Date("2025-01-02"),
         endDate: new Date("2025-01-04"),
         reason: "Maintenance",
-      });
+      }]);
 
       const res = await request(app)
         .post("/api/cart/user-1/items")
@@ -175,7 +175,7 @@ describe("Cart API", () => {
         });
 
       expect(res.status).toBe(409);
-      expect(res.body.error).toBe("This item is not available for the requested dates");
+      expect(res.body.error).toBe("This item is blocked from 1/2/2025 to 1/4/2025");
     });
 
     it("returns 400 for missing required fields", async () => {
@@ -281,8 +281,8 @@ describe("Cart API", () => {
     it("converts cart items to rentals on successful checkout", async () => {
       prismaMock.cart.findFirst.mockResolvedValue(cartWithItems);
       prismaMock.rentableItem.findUnique.mockResolvedValue({ id: "ri-1", dailyRate: 25, isAvailable: true });
-      prismaMock.rental.findFirst.mockResolvedValue(null);
-      prismaMock.blockedDay.findFirst.mockResolvedValue(null);
+      prismaMock.rental.findMany.mockResolvedValue([]);
+      prismaMock.blockedDay.findMany.mockResolvedValue([]);
       prismaMock.rental.create.mockResolvedValue({
         id: "rental-1",
         rentableItemId: "ri-1",
@@ -339,37 +339,37 @@ describe("Cart API", () => {
     it("returns 409 when item has overlapping rental", async () => {
       prismaMock.cart.findFirst.mockResolvedValue(cartWithItems);
       prismaMock.rentableItem.findUnique.mockResolvedValue({ id: "ri-1", dailyRate: 25, isAvailable: true });
-      prismaMock.rental.findFirst.mockResolvedValue({
+      prismaMock.rental.findMany.mockResolvedValue([{
         id: "rental-existing",
         rentableItemId: "ri-1",
         status: "active",
         startDate: new Date("2025-01-03"),
         endDate: new Date("2025-01-10"),
-      });
+      }]);
       prismaMock.cartItem.delete.mockResolvedValue({});
 
       const res = await request(app).post("/api/cart/user-1/checkout");
 
       expect(res.status).toBe(409);
-      expect(res.body.data.invalidItems[0].reason).toContain("already rented");
+      expect(res.body.data.invalidItems[0].reason).toBe("Item is already rented from 1/3/2025 to 1/10/2025");
     });
 
     it("returns 409 when item has overlapping blocked days", async () => {
       prismaMock.cart.findFirst.mockResolvedValue(cartWithItems);
       prismaMock.rentableItem.findUnique.mockResolvedValue({ id: "ri-1", dailyRate: 25, isAvailable: true });
-      prismaMock.rental.findFirst.mockResolvedValue(null);
-      prismaMock.blockedDay.findFirst.mockResolvedValue({
+      prismaMock.rental.findMany.mockResolvedValue([]);
+      prismaMock.blockedDay.findMany.mockResolvedValue([{
         id: "bd-1",
         rentableItemId: "ri-1",
         startDate: new Date("2025-01-02"),
         endDate: new Date("2025-01-04"),
-      });
+      }]);
       prismaMock.cartItem.delete.mockResolvedValue({});
 
       const res = await request(app).post("/api/cart/user-1/checkout");
 
       expect(res.status).toBe(409);
-      expect(res.body.data.invalidItems[0].reason).toContain("not available");
+      expect(res.body.data.invalidItems[0].reason).toBe("Item is blocked from 1/2/2025 to 1/4/2025");
     });
 
     it("returns 500 on database error", async () => {

@@ -8,6 +8,7 @@ interface ModelMock {
   update: Mock;
   delete: Mock;
   deleteMany: Mock;
+  count: Mock;
 }
 
 // Mock all Prisma model methods
@@ -20,6 +21,7 @@ function createModelMock(): ModelMock {
     update: vi.fn(),
     delete: vi.fn(),
     deleteMany: vi.fn(),
+    count: vi.fn(),
   };
 }
 

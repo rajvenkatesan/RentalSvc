@@ -162,10 +162,12 @@ describe("Items API", () => {
       expect(prismaMock.item.delete).toHaveBeenCalledWith({ where: { id: "item-1" } });
     });
 
-    it("cascade deletes item with rentable and related records", async () => {
+    it("cascade deletes item with rentable and related records when no active rentals or cart items", async () => {
       const rentable = { id: "rentable-1", itemId: "item-1" };
       prismaMock.item.findUnique.mockResolvedValue(sampleItem);
       prismaMock.rentableItem.findUnique.mockResolvedValue(rentable);
+      prismaMock.rental.count.mockResolvedValue(0);
+      prismaMock.cartItem.count.mockResolvedValue(0);
       prismaMock.$transaction.mockResolvedValue([]);
 
       const res = await request(app)
@@ -175,6 +177,37 @@ describe("Items API", () => {
       expect(res.status).toBe(200);
       expect(res.body.message).toBe("Item deleted");
       expect(prismaMock.$transaction).toHaveBeenCalled();
+    });
+
+    it("returns 409 when item has active rentals", async () => {
+      const rentable = { id: "rentable-1", itemId: "item-1" };
+      prismaMock.item.findUnique.mockResolvedValue(sampleItem);
+      prismaMock.rentableItem.findUnique.mockResolvedValue(rentable);
+      prismaMock.rental.count.mockResolvedValue(1);
+
+      const res = await request(app)
+        .delete("/api/items/item-1")
+        .set("x-user-id", "user-1");
+
+      expect(res.status).toBe(409);
+      expect(res.body.error).toBe("Cannot delete: item has active rentals");
+      expect(prismaMock.$transaction).not.toHaveBeenCalled();
+    });
+
+    it("returns 409 when item is in users' carts", async () => {
+      const rentable = { id: "rentable-1", itemId: "item-1" };
+      prismaMock.item.findUnique.mockResolvedValue(sampleItem);
+      prismaMock.rentableItem.findUnique.mockResolvedValue(rentable);
+      prismaMock.rental.count.mockResolvedValue(0);
+      prismaMock.cartItem.count.mockResolvedValue(2);
+
+      const res = await request(app)
+        .delete("/api/items/item-1")
+        .set("x-user-id", "user-1");
+
+      expect(res.status).toBe(409);
+      expect(res.body.error).toBe("Cannot delete: item is in users' carts");
+      expect(prismaMock.$transaction).not.toHaveBeenCalled();
     });
 
     it("returns 403 for non-owner", async () => {
