@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { fetchRentals, type Rental } from "../lib/api";
+import { fetchRentals, updateRentalStatus, type Rental } from "../lib/api";
 import { useUser } from "../context/UserContext";
 
 const statusColors: Record<string, string> = {
@@ -17,6 +17,7 @@ export default function Rentals() {
   const { currentUser } = useUser();
   const [rentals, setRentals] = useState<Rental[]>([]);
   const [loading, setLoading] = useState(true);
+  const [cancellingId, setCancellingId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!currentUser) {
@@ -30,6 +31,20 @@ export default function Rentals() {
       .catch(() => setRentals([]))
       .finally(() => setLoading(false));
   }, [currentUser?.id]);
+
+  async function handleCancel(rentalId: string) {
+    if (!window.confirm("Are you sure you want to cancel this rental?")) return;
+    setCancellingId(rentalId);
+    try {
+      await updateRentalStatus(rentalId, "cancelled");
+      const updated = await fetchRentals();
+      setRentals(updated);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to cancel rental");
+    } finally {
+      setCancellingId(null);
+    }
+  }
 
   if (!currentUser) {
     return (
@@ -93,11 +108,20 @@ export default function Rentals() {
                 </span>
               </div>
 
-              {/* Cost */}
-              <div className="flex flex-col items-end justify-center">
+              {/* Cost + Cancel */}
+              <div className="flex flex-col items-end justify-center gap-2">
                 <span className="text-lg font-bold text-indigo-600">
                   ${Number(rental.totalCost).toFixed(2)}
                 </span>
+                {(rental.status === "pending" || rental.status === "active") && (
+                  <button
+                    onClick={() => handleCancel(rental.id)}
+                    disabled={cancellingId === rental.id}
+                    className="px-3 py-1 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded disabled:opacity-50"
+                  >
+                    {cancellingId === rental.id ? "Cancelling..." : "Cancel"}
+                  </button>
+                )}
               </div>
             </div>
           ))}

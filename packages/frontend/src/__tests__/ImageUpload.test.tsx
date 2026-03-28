@@ -22,7 +22,7 @@ describe("ImageUpload", () => {
   });
 
   it("calls uploadImage on file selection and invokes onChange", async () => {
-    mockUploadImage.mockResolvedValue("/uploads/photo.png");
+    mockUploadImage.mockResolvedValue("/api/images/abc-123");
     const onChange = vi.fn();
     render(<ImageUpload images={[]} onChange={onChange} />);
 
@@ -32,14 +32,14 @@ describe("ImageUpload", () => {
 
     await waitFor(() => {
       expect(mockUploadImage).toHaveBeenCalledWith(file);
-      expect(onChange).toHaveBeenCalledWith(["/uploads/photo.png"]);
+      expect(onChange).toHaveBeenCalledWith(["/api/images/abc-123"]);
     });
   });
 
   it("renders existing image thumbnails", () => {
-    render(<ImageUpload images={["/uploads/a.png", "/uploads/b.png"]} onChange={vi.fn()} />);
+    render(<ImageUpload images={["/api/images/img-1", "/api/images/img-2"]} onChange={vi.fn()} />);
     const imgs = screen.getAllByRole("img");
     expect(imgs).toHaveLength(2);
-    expect(imgs[0]).toHaveAttribute("src", "/uploads/a.png");
+    expect(imgs[0]).toHaveAttribute("src", "/api/images/img-1");
   });
 });
