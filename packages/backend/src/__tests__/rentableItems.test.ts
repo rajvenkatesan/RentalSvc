@@ -152,7 +152,7 @@ describe("Rentable Items API", () => {
       const res = await request(app).post("/api/rentable-items").send({});
 
       expect(res.status).toBe(400);
-      expect(res.body.error).toContain("Missing required fields");
+      expect(res.body.error).toBeTruthy();
     });
   });
 

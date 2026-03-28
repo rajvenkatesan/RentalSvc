@@ -1,7 +1,18 @@
 import { Router } from "express";
+import { z } from "zod";
 import prisma from "../lib/prisma.js";
 
 const router: Router = Router();
+
+const createItemSchema = z.object({
+  ownerId: z.string().min(1),
+  title: z.string().min(1).max(200),
+  category: z.string().min(1),
+  description: z.string().optional(),
+  condition: z.enum(["new", "like_new", "good", "fair"]).optional(),
+  images: z.array(z.string()).optional(),
+  location: z.any().optional(),
+});
 
 // GET /api/items — list all items
 router.get("/", async (req, res) => {
@@ -37,14 +48,15 @@ router.get("/:id", async (req, res) => {
 // POST /api/items — create item
 router.post("/", async (req, res) => {
   try {
-    const { ownerId, title, description, category, condition, images, location } = req.body;
-    if (!ownerId || !title || !category) {
+    const parsed = createItemSchema.safeParse(req.body);
+    if (!parsed.success) {
       return res.status(400).json({
         data: null,
-        error: "Missing required fields: ownerId, title, category",
+        error: parsed.error.issues.map(i => i.message).join(", "),
         message: null,
       });
     }
+    const { ownerId, title, description, category, condition, images, location } = parsed.data;
     const item = await prisma.item.create({
       data: { ownerId, title, description, category, condition, images, location },
     });
@@ -67,11 +79,19 @@ router.put("/:id", async (req, res) => {
     if (!userId || userId !== existing.ownerId) {
       return res.status(403).json({ data: null, error: "Forbidden: only the owner can edit this item", message: null });
     }
+    const { title, description, category, condition, images, location } = req.body;
+    const updateData: Record<string, unknown> = {};
+    if (title !== undefined) updateData.title = title;
+    if (description !== undefined) updateData.description = description;
+    if (category !== undefined) updateData.category = category;
+    if (condition !== undefined) updateData.condition = condition;
+    if (images !== undefined) updateData.images = images;
+    if (location !== undefined) updateData.location = location;
     const item = await prisma.item.update({
       where: { id: req.params.id },
-      data: req.body,
+      data: updateData,
     });
-    req.log.info({ itemId: req.params.id, itemTitle: item.title, changes: Object.keys(req.body) }, "Item updated");
+    req.log.info({ itemId: req.params.id, itemTitle: item.title, changes: Object.keys(updateData) }, "Item updated");
     res.json({ data: item, error: null, message: "Item updated" });
   } catch (err) {
     req.log.error({ err }, "Failed to update item");

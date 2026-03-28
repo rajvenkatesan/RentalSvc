@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { z } from "zod";
 import prisma from "../lib/prisma.js";
 
 const router: Router = Router();
@@ -9,6 +10,17 @@ const rentalInclude = {
       item: true,
     },
   },
+};
+
+const updateStatusSchema = z.object({
+  status: z.enum(["pending", "active", "completed", "cancelled"]),
+});
+
+const allowedTransitions: Record<string, string[]> = {
+  pending: ["active", "cancelled"],
+  active: ["completed", "cancelled"],
+  completed: [],
+  cancelled: [],
 };
 
 // GET /api/rentals?userId=X — list all rentals for a user
@@ -58,14 +70,16 @@ router.get("/:id", async (req, res) => {
 // PUT /api/rentals/:id/status — update rental status (renter only)
 router.put("/:id/status", async (req, res) => {
   try {
-    const { status } = req.body;
-    if (!status) {
+    const parsed = updateStatusSchema.safeParse(req.body);
+    if (!parsed.success) {
       return res.status(400).json({
         data: null,
-        error: "Missing required field: status",
+        error: parsed.error.issues.map(i => i.message).join(", "),
         message: null,
       });
     }
+
+    const { status } = parsed.data;
 
     const rental = await prisma.rental.findUnique({
       where: { id: req.params.id },
@@ -80,6 +94,16 @@ router.put("/:id/status", async (req, res) => {
       return res.status(403).json({
         data: null,
         error: "Forbidden: only the renter can update this rental",
+        message: null,
+      });
+    }
+
+    // Check state machine transition
+    const allowed = allowedTransitions[rental.status] || [];
+    if (!allowed.includes(status)) {
+      return res.status(400).json({
+        data: null,
+        error: `Invalid status transition from '${rental.status}' to '${status}'`,
         message: null,
       });
     }

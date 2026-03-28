@@ -1,8 +1,21 @@
 import { Router } from "express";
+import { z } from "zod";
 import { Prisma } from "../generated/prisma/client.js";
 import prisma from "../lib/prisma.js";
 
 const router: Router = Router();
+
+const createRentableItemSchema = z.object({
+  itemId: z.string().min(1),
+  dailyRate: z.number(),
+  weeklyRate: z.number().optional(),
+  securityDeposit: z.number().optional(),
+  minRentalDays: z.number().int().positive().optional(),
+  maxRentalDays: z.number().int().positive().optional(),
+  deliveryOptions: z.array(z.string()).optional(),
+  shippingCost: z.number().optional(),
+  isAvailable: z.boolean().optional(),
+});
 
 // GET /api/rentable-items — list with filters and sorting
 router.get("/", async (req, res) => {
@@ -71,14 +84,15 @@ router.get("/:id", async (req, res) => {
 // POST /api/rentable-items — create
 router.post("/", async (req, res) => {
   try {
-    const { itemId, dailyRate, weeklyRate, securityDeposit, minRentalDays, maxRentalDays, deliveryOptions, shippingCost, isAvailable } = req.body;
-    if (!itemId || dailyRate === undefined) {
+    const parsed = createRentableItemSchema.safeParse(req.body);
+    if (!parsed.success) {
       return res.status(400).json({
         data: null,
-        error: "Missing required fields: itemId, dailyRate",
+        error: parsed.error.issues.map(i => i.message).join(", "),
         message: null,
       });
     }
+    const { itemId, dailyRate, weeklyRate, securityDeposit, minRentalDays, maxRentalDays, deliveryOptions, shippingCost, isAvailable } = parsed.data;
     const rentableItem = await prisma.rentableItem.create({
       data: {
         itemId,
@@ -112,9 +126,18 @@ router.put("/:id", async (req, res) => {
     if (!existing) {
       return res.status(404).json({ data: null, error: "Rentable item not found", message: null });
     }
+    const { dailyRate, weeklyRate, deposit, minRentalDays, maxRentalDays, isAvailable, deliveryOption } = req.body;
+    const updateData: Record<string, unknown> = {};
+    if (dailyRate !== undefined) updateData.dailyRate = dailyRate;
+    if (weeklyRate !== undefined) updateData.weeklyRate = weeklyRate;
+    if (deposit !== undefined) updateData.securityDeposit = deposit;
+    if (minRentalDays !== undefined) updateData.minRentalDays = minRentalDays;
+    if (maxRentalDays !== undefined) updateData.maxRentalDays = maxRentalDays;
+    if (isAvailable !== undefined) updateData.isAvailable = isAvailable;
+    if (deliveryOption !== undefined) updateData.deliveryOptions = deliveryOption;
     const rentableItem = await prisma.rentableItem.update({
       where: { id: req.params.id },
-      data: req.body,
+      data: updateData,
     });
     res.json({ data: rentableItem, error: null, message: "Rentable item updated" });
   } catch (err) {

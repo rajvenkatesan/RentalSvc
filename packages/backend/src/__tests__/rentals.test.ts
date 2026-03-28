@@ -143,7 +143,20 @@ describe("Rentals API", () => {
         .send({});
 
       expect(res.status).toBe(400);
-      expect(res.body.error).toContain("Missing required field");
+      expect(res.body.error).toBeTruthy();
+    });
+
+    it("returns 400 for invalid status transition", async () => {
+      const completedRental = { ...sampleRental, status: "completed" };
+      prismaMock.rental.findUnique.mockResolvedValue(completedRental);
+
+      const res = await request(app)
+        .put("/api/rentals/rental-1/status")
+        .set("x-user-id", "user-1")
+        .send({ status: "active" });
+
+      expect(res.status).toBe(400);
+      expect(res.body.error).toContain("Invalid status transition");
     });
 
     it("returns 404 for non-existent rental", async () => {
