@@ -10,8 +10,9 @@ import usersRouter from "./routes/users.js";
 import imagesRouter from "./routes/images.js";
 import blockedDaysRouter from "./routes/blockedDays.js";
 import rentalsRouter from "./routes/rentals.js";
+import traceMiddleware from "./lib/traceMiddleware.js";
 
-import type { Express } from "express";
+import type { Express, Request, Response, NextFunction } from "express";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -20,6 +21,7 @@ const app: Express = express();
 
 app.use(cors());
 app.use(express.json());
+app.use(traceMiddleware);
 
 // Backward-compat: serve old /uploads/:filename from filesystem if the file exists
 app.get("/uploads/:filename", (req, res, next) => {
@@ -41,5 +43,10 @@ app.use("/api/users", usersRouter);
 app.use("/api/images", imagesRouter);
 app.use("/api/blocked-days", blockedDaysRouter);
 app.use("/api/rentals", rentalsRouter);
+
+app.use((err: Error, req: Request, res: Response, _next: NextFunction) => {
+  req.log?.error({ err }, "Unhandled error");
+  res.status(500).json({ data: null, error: "Internal server error", message: null });
+});
 
 export default app;

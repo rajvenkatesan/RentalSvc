@@ -100,17 +100,21 @@ interface ApiResponse<T> {
 
 async function apiFetch<T>(url: string, options?: RequestInit): Promise<T> {
   const userId = getApiUserId();
+  const requestId = crypto.randomUUID();
   const res = await fetch(url, {
     ...options,
     headers: {
       "Content-Type": "application/json",
+      "x-request-id": requestId,
       ...(userId ? { "x-user-id": userId } : {}),
       ...options?.headers,
     },
   });
   const json: ApiResponse<T> = await res.json();
   if (json.error || !res.ok) {
-    throw new Error(json.error ?? `Request failed: ${res.status}`);
+    const errorMsg = json.error ?? `Request failed: ${res.status}`;
+    console.error(`[API Error] requestId=${requestId} url=${url} status=${res.status} error="${errorMsg}"`);
+    throw new Error(`[req-id: ${requestId}] ${errorMsg}`);
   }
   return json.data as T;
 }

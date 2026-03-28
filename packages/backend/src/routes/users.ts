@@ -27,14 +27,16 @@ router.post("/", async (req, res) => {
       },
     });
 
+    req.log.info({ userId: user.id, username: user.username }, "User registered");
     res.status(201).json({ data: user, error: null, message: "User created" });
   } catch (err) {
+    req.log.error({ err }, "Failed to create user");
     res.status(500).json({ data: null, error: "Internal server error", message: null });
   }
 });
 
 // GET /api/users — list all users
-router.get("/", async (_req, res) => {
+router.get("/", async (req, res) => {
   try {
     const users = await prisma.user.findMany({
       include: { items: true },
@@ -42,6 +44,7 @@ router.get("/", async (_req, res) => {
     });
     res.json({ data: users, error: null, message: "Users retrieved" });
   } catch (err) {
+    req.log.error({ err }, "Failed to list users");
     res.status(500).json({ data: null, error: "Internal server error", message: null });
   }
 });
@@ -58,6 +61,7 @@ router.get("/by-username/:username", async (req, res) => {
     }
     res.json({ data: user, error: null, message: "User retrieved" });
   } catch (err) {
+    req.log.error({ err }, "Failed to get user by username");
     res.status(500).json({ data: null, error: "Internal server error", message: null });
   }
 });
@@ -74,6 +78,7 @@ router.get("/:id", async (req, res) => {
     }
     res.json({ data: user, error: null, message: "User retrieved" });
   } catch (err) {
+    req.log.error({ err }, "Failed to get user");
     res.status(500).json({ data: null, error: "Internal server error", message: null });
   }
 });
@@ -107,6 +112,7 @@ router.put("/:id", async (req, res) => {
 
     res.json({ data: user, error: null, message: "User updated" });
   } catch (err) {
+    req.log.error({ err }, "Failed to update user");
     res.status(500).json({ data: null, error: "Internal server error", message: null });
   }
 });
@@ -120,8 +126,10 @@ router.delete("/:id", async (req, res) => {
     }
 
     await prisma.user.delete({ where: { id: req.params.id } });
+    req.log.info({ userId: req.params.id, username: existing.username }, "User deleted");
     res.json({ data: null, error: null, message: "User deleted" });
   } catch (err) {
+    req.log.error({ err }, "Failed to delete user");
     res.status(500).json({ data: null, error: "Internal server error", message: null });
   }
 });

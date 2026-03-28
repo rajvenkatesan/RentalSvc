@@ -41,6 +41,7 @@ router.get("/:userId", async (req, res) => {
 
     res.json({ data: cart, error: null, message: "Cart retrieved" });
   } catch (err) {
+    req.log.error({ err }, "Failed to get cart");
     res.status(500).json({ data: null, error: "Internal server error", message: null });
   }
 });
@@ -137,8 +138,17 @@ router.post("/:userId/items", async (req, res) => {
       },
     });
 
+    req.log.info({
+      itemTitle: cartItem.rentableItem.item.title,
+      rentableItemId,
+      startDate,
+      endDate,
+      estimatedCost,
+      days,
+    }, "Item added to cart");
     res.status(201).json({ data: cartItem, error: null, message: "Item added to cart" });
   } catch (err) {
+    req.log.error({ err }, "Failed to add item to cart");
     res.status(500).json({ data: null, error: "Internal server error", message: null });
   }
 });
@@ -178,8 +188,16 @@ router.put("/:userId/items/:itemId", async (req, res) => {
       },
     });
 
+    req.log.info({
+      cartItemId: req.params.itemId,
+      itemTitle: cartItem.rentableItem.item.title,
+      oldDates: { startDate: existing.startDate, endDate: existing.endDate },
+      newDates: { startDate, endDate },
+      newCost: estimatedCost,
+    }, "Cart item updated");
     res.json({ data: cartItem, error: null, message: "Cart item updated" });
   } catch (err) {
+    req.log.error({ err }, "Failed to update cart item");
     res.status(500).json({ data: null, error: "Internal server error", message: null });
   }
 });
@@ -301,12 +319,24 @@ router.post("/:userId/checkout", async (req, res) => {
       await prisma.cartItem.delete({ where: { id: cartItem.id } });
     }
 
+    for (const rental of rentals) {
+      req.log.info({
+        rentalId: rental.id,
+        itemTitle: rental.rentableItem.item.title,
+        startDate: rental.startDate,
+        endDate: rental.endDate,
+        totalCost: Number(rental.totalCost),
+      }, "Rental created from checkout");
+    }
+    const totalCost = rentals.reduce((sum, r) => sum + Number(r.totalCost), 0);
+    req.log.info({ userId: req.params.userId, rentalCount: rentals.length, totalCost }, "Checkout completed");
     res.status(201).json({
       data: { rentals },
       error: null,
       message: "Checkout successful",
     });
   } catch (err) {
+    req.log.error({ err }, "Failed to checkout");
     res.status(500).json({ data: null, error: "Internal server error", message: null });
   }
 });
@@ -322,8 +352,10 @@ router.delete("/:userId/items/:itemId", async (req, res) => {
     }
 
     await prisma.cartItem.delete({ where: { id: req.params.itemId } });
+    req.log.info({ cartItemId: req.params.itemId, userId: req.params.userId }, "Item removed from cart");
     res.json({ data: null, error: null, message: "Item removed from cart" });
   } catch (err) {
+    req.log.error({ err }, "Failed to remove item from cart");
     res.status(500).json({ data: null, error: "Internal server error", message: null });
   }
 });

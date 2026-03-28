@@ -4,7 +4,7 @@ import prisma from "../lib/prisma.js";
 const router: Router = Router();
 
 // GET /api/items — list all items
-router.get("/", async (_req, res) => {
+router.get("/", async (req, res) => {
   try {
     const items = await prisma.item.findMany({
       include: { owner: true },
@@ -12,6 +12,7 @@ router.get("/", async (_req, res) => {
     });
     res.json({ data: items, error: null, message: "Items retrieved" });
   } catch (err) {
+    req.log.error({ err }, "Failed to list items");
     res.status(500).json({ data: null, error: "Internal server error", message: null });
   }
 });
@@ -28,6 +29,7 @@ router.get("/:id", async (req, res) => {
     }
     res.json({ data: item, error: null, message: "Item retrieved" });
   } catch (err) {
+    req.log.error({ err }, "Failed to get item");
     res.status(500).json({ data: null, error: "Internal server error", message: null });
   }
 });
@@ -46,8 +48,10 @@ router.post("/", async (req, res) => {
     const item = await prisma.item.create({
       data: { ownerId, title, description, category, condition, images, location },
     });
+    req.log.info({ itemId: item.id, itemTitle: title, category, ownerUserId: ownerId }, "Item created");
     res.status(201).json({ data: item, error: null, message: "Item created" });
   } catch (err) {
+    req.log.error({ err }, "Failed to create item");
     res.status(500).json({ data: null, error: "Internal server error", message: null });
   }
 });
@@ -67,8 +71,10 @@ router.put("/:id", async (req, res) => {
       where: { id: req.params.id },
       data: req.body,
     });
+    req.log.info({ itemId: req.params.id, itemTitle: item.title, changes: Object.keys(req.body) }, "Item updated");
     res.json({ data: item, error: null, message: "Item updated" });
   } catch (err) {
+    req.log.error({ err }, "Failed to update item");
     res.status(500).json({ data: null, error: "Internal server error", message: null });
   }
 });
@@ -107,8 +113,10 @@ router.delete("/:id", async (req, res) => {
     } else {
       await prisma.item.delete({ where: { id: req.params.id } });
     }
+    req.log.info({ itemId: req.params.id, itemTitle: existing.title, ownerUserId: existing.ownerId }, "Item deleted");
     res.json({ data: null, error: null, message: "Item deleted" });
   } catch (err) {
+    req.log.error({ err }, "Failed to delete item");
     res.status(500).json({ data: null, error: "Internal server error", message: null });
   }
 });
