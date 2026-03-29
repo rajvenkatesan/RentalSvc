@@ -3,10 +3,9 @@ import { useNavigate } from "react-router-dom";
 import { createItem, createRentableItem } from "../lib/api";
 import { useUser } from "../context/UserContext";
 import ImageUpload from "../components/ImageUpload";
+import { CATEGORIES } from "../lib/constants";
 
 type Step = 1 | 2 | 3;
-
-const CATEGORIES = ["Tools", "Electronics", "Sports", "Outdoor", "Kitchen"];
 const CONDITIONS = [
   { value: "new", label: "New" },
   { value: "like_new", label: "Like New" },

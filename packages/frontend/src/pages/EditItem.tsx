@@ -3,8 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { fetchRentableItem, updateItem, type RentableItem } from "../lib/api";
 import { useUser } from "../context/UserContext";
 import ImageUpload from "../components/ImageUpload";
-
-const CATEGORIES = ["Tools", "Electronics", "Sports", "Outdoor", "Kitchen"];
+import { CATEGORIES } from "../lib/constants";
 const CONDITIONS = [
   { value: "new", label: "New" },
   { value: "like_new", label: "Like New" },

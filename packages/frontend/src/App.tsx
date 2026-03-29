@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { UserProvider } from "./context/UserContext";
 import { CartProvider } from "./context/CartContext";
+import ErrorBoundary from "./components/ErrorBoundary";
 import Navbar from "./components/Navbar";
 import Home from "./pages/Home";
 import Browse from "./pages/Browse";
@@ -17,6 +18,7 @@ function App() {
     <BrowserRouter>
       <UserProvider>
         <CartProvider>
+        <ErrorBoundary>
         <div className="min-h-screen bg-gray-50">
           <Navbar />
           <Routes>
@@ -31,6 +33,7 @@ function App() {
             <Route path="/register" element={<Register />} />
           </Routes>
         </div>
+        </ErrorBoundary>
         </CartProvider>
       </UserProvider>
     </BrowserRouter>

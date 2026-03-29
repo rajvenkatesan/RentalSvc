@@ -14,12 +14,18 @@ const createItemSchema = z.object({
   location: z.any().optional(),
 });
 
-// GET /api/items — list all items
+// GET /api/items — list items with optional filters
 router.get("/", async (req, res) => {
   try {
+    const { ownerId, limit } = req.query;
+    const where: Record<string, unknown> = {};
+    if (ownerId) where.ownerId = ownerId as string;
+
     const items = await prisma.item.findMany({
+      where,
       include: { owner: true },
       orderBy: { createdAt: "desc" },
+      ...(limit ? { take: Number(limit) } : {}),
     });
     res.json({ data: items, error: null, message: "Items retrieved" });
   } catch (err) {
