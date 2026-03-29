@@ -2,17 +2,20 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { fetchRentableItems, type RentableItem } from "../lib/api";
 import ItemCard from "../components/ItemCard";
-
-const CATEGORIES = ["Tools", "Electronics", "Sports", "Outdoor", "Kitchen"];
+import { CATEGORIES } from "../lib/constants";
 
 export default function Home() {
   const [featured, setFeatured] = useState<RentableItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetchRentableItems()
-      .then((items) => setFeatured(items.slice(0, 6)))
-      .catch(() => setFeatured([]))
+    fetchRentableItems({ limit: "6" })
+      .then((items) => setFeatured(items))
+      .catch((err) => {
+        setFeatured([]);
+        setError(err instanceof Error ? err.message : "Failed to load featured items");
+      })
       .finally(() => setLoading(false));
   }, []);
 
@@ -60,6 +63,11 @@ export default function Home() {
             View all
           </Link>
         </div>
+        {error && (
+          <div className="mb-4 bg-red-50 border border-red-200 rounded-lg p-3 text-red-700 text-sm">
+            {error}
+          </div>
+        )}
         {loading ? (
           <p className="text-gray-500">Loading...</p>
         ) : featured.length === 0 ? (

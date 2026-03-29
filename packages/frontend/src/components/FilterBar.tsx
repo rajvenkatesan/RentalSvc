@@ -1,4 +1,4 @@
-const CATEGORIES = ["Tools", "Electronics", "Sports", "Outdoor", "Kitchen"];
+import { CATEGORIES } from "../lib/constants";
 
 interface FilterBarProps {
   category: string;

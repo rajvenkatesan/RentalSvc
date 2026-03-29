@@ -20,6 +20,7 @@ export default function Cart() {
   const [loading, setLoading] = useState(true);
   const [checkingOut, setCheckingOut] = useState(false);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!currentUser) {
@@ -33,9 +34,13 @@ export default function Cart() {
   function loadCart() {
     if (!currentUser) return;
     setLoading(true);
+    setError(null);
     fetchCart()
       .then(setCart)
-      .catch(() => setCart(null))
+      .catch((err) => {
+        setCart(null);
+        setError(err instanceof Error ? err.message : "Failed to load cart");
+      })
       .finally(() => setLoading(false));
   }
 
@@ -87,6 +92,12 @@ export default function Cart() {
   return (
     <div className="max-w-4xl mx-auto px-4 py-8">
       <h1 className="text-3xl font-bold text-gray-900 mb-6">Your Cart</h1>
+
+      {error && (
+        <div className="mb-4 bg-red-50 border border-red-200 rounded-lg p-3 text-red-700 text-sm">
+          {error}
+        </div>
+      )}
 
       {!cart || cart.items.length === 0 ? (
         <p className="text-gray-500">Your cart is empty.</p>

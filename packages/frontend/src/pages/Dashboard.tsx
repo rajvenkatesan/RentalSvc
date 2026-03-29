@@ -18,20 +18,25 @@ export default function Dashboard() {
   const [myListings, setMyListings] = useState<RentableItem[]>([]);
   const [myItems, setMyItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!currentUser) {
       setLoading(false);
       return;
     }
-    Promise.all([fetchItems(), fetchRentableItems()])
+    setError(null);
+    Promise.all([
+      fetchItems({ ownerId: currentUser.id }),
+      fetchRentableItems(),
+    ])
       .then(([items, rentables]) => {
-        setMyItems(items.filter((i) => i.ownerId === currentUser.id));
+        setMyItems(items);
         setMyListings(
           rentables.filter((r) => r.item.ownerId === currentUser.id),
         );
       })
-      .catch(() => {})
+      .catch((err) => setError(err instanceof Error ? err.message : "Failed to load data"))
       .finally(() => setLoading(false));
   }, [currentUser]);
 
@@ -39,10 +44,16 @@ export default function Dashboard() {
     if (!window.confirm("Are you sure you want to delete this item?")) return;
     try {
       await deleteItem(itemId);
-      setMyItems((prev) => prev.filter((i) => i.id !== itemId));
-      setMyListings((prev) => prev.filter((r) => r.item.id !== itemId));
-    } catch {
-      // silently fail — user will see item still present
+      if (currentUser) {
+        const [items, rentables] = await Promise.all([
+          fetchItems({ ownerId: currentUser.id }),
+          fetchRentableItems(),
+        ]);
+        setMyItems(items);
+        setMyListings(rentables.filter((r) => r.item.ownerId === currentUser.id));
+      }
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to delete item");
     }
   }
 
@@ -57,6 +68,12 @@ export default function Dashboard() {
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">
       <h1 className="text-3xl font-bold text-gray-900 mb-6">Dashboard</h1>
+
+      {error && (
+        <div className="mb-4 bg-red-50 border border-red-200 rounded-lg p-3 text-red-700 text-sm">
+          {error}
+        </div>
+      )}
 
       {/* Tabs */}
       <div className="flex gap-4 border-b border-gray-200 mb-6">

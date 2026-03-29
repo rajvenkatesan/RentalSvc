@@ -121,8 +121,15 @@ async function apiFetch<T>(url: string, options?: RequestInit): Promise<T> {
 
 // --- Items ---
 
-export function fetchItems(): Promise<Item[]> {
-  return apiFetch<Item[]>("/api/items");
+export function fetchItems(params?: {
+  ownerId?: string;
+  limit?: number;
+}): Promise<Item[]> {
+  const search = new URLSearchParams();
+  if (params?.ownerId) search.set("ownerId", params.ownerId);
+  if (params?.limit) search.set("limit", String(params.limit));
+  const qs = search.toString();
+  return apiFetch<Item[]>(`/api/items${qs ? `?${qs}` : ""}`);
 }
 
 export function fetchItem(id: string): Promise<Item> {
@@ -173,12 +180,14 @@ export function fetchRentableItems(params?: {
   minPrice?: string;
   maxPrice?: string;
   sort?: string;
+  limit?: string;
 }): Promise<RentableItem[]> {
   const search = new URLSearchParams();
   if (params?.category) search.set("category", params.category);
   if (params?.minPrice) search.set("minPrice", params.minPrice);
   if (params?.maxPrice) search.set("maxPrice", params.maxPrice);
   if (params?.sort) search.set("sort", params.sort);
+  if (params?.limit) search.set("limit", params.limit);
   const qs = search.toString();
   return apiFetch<RentableItem[]>(`/api/rentable-items${qs ? `?${qs}` : ""}`);
 }

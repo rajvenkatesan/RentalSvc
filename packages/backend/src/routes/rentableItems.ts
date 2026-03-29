@@ -20,7 +20,7 @@ const createRentableItemSchema = z.object({
 // GET /api/rentable-items — list with filters and sorting
 router.get("/", async (req, res) => {
   try {
-    const { category, minPrice, maxPrice, isAvailable, sort } = req.query;
+    const { category, minPrice, maxPrice, isAvailable, sort, limit } = req.query;
 
     const where: Prisma.RentableItemWhereInput = {};
 
@@ -48,6 +48,7 @@ router.get("/", async (req, res) => {
       where,
       orderBy,
       include: { item: { include: { owner: true } } },
+      ...(limit ? { take: Number(limit) } : {}),
     });
 
     res.json({ data: rentableItems, error: null, message: "Rentable items retrieved" });
